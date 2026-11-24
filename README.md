@@ -3,6 +3,11 @@
 Jogo de estratégia em tempo real para celular, feito em HTML5 (um único arquivo, sem instalar nada).
 Inspirado no gênero dos RTS táticos modernos em que os soldados leem o terreno sozinhos.
 
+Gráficos em 3D (WebGL com three.js, carregado de um CDN, então precisa de internet na primeira abertura):
+relevo de verdade, sombras longas do sol, explosões com fogo, fumaça e poeira, e três mapas:
+**Inverno** (neve, trincheiras já cavadas, ouriços antitanque), **Deserto** (casas de adobe com laje,
+muros de pátio, palmeiras) e **Outono**.
+
 ## Como jogar
 
 Abra `index.html` no navegador do celular, deite o aparelho e toque em **Jogar**.
