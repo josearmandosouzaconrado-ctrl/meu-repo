@@ -1,0 +1,12 @@
+{
+  "name": "Contra-Encosta",
+  "short_name": "Contra-Encosta",
+  "description": "Estratégia em tempo real para celular: tropas que leem o terreno.",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#12150e",
+  "theme_color": "#12150e",
+  "lang": "pt-BR",
+  "icons": [{"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]
+}
