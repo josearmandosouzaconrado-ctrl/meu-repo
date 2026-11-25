@@ -429,8 +429,14 @@ function* paintGroundGen(){
       const v=((fine-.5)*13+(n2-.5)*18)*(win?.45:1);R1+=v;G1+=v*1.05;B1+=v*(win?1.1:.6);
       if(des){const rp=Math.sin((px*.8+py*.35)/5.2+n1*22)*6+Math.sin((px*.3-py*.6)/11+n2*9)*4;R1+=rp;G1+=rp*.85;B1+=rp*.6}
       if(fine>.988){R1=R1*.6+gp.spk[0]*.4;G1=G1*.6+gp.spk[1]*.4;B1=B1*.6+gp.spk[2]*.4}else if(fine<.003&&!win){R1=196;G1=188;B1=150}
+      // terra exposta, flores, folhas caídas, brilho e sombras azuladas na neve, cascalho no deserto
+      if(!win){const dz=n1*.6+n2*.4;if(dz<.3){const k=Math.min(1,(.3-dz)*5)*(des?.3:.5);R1+=(gp.mud[0]*1.08-R1)*k;G1+=(gp.mud[1]*1.08-G1)*k;B1+=(gp.mud[2]*1.08-B1)*k}}
+      if(!win&&!des&&fine>.9962){const h2=hsh(px+7,py);if(h2<.4){R1=214;G1=198;B1=86}else if(h2<.75){R1=222;G1=220;B1=208}else{R1=176;G1=96;B1=64}}
+      if(win){const lk=clamp(.45-h,0,.45);B1+=lk*18;R1-=lk*9;G1-=lk*4;if(fine>.9972){R1=G1=B1=255}}
+      if(des&&fine<.014){R1*=.72;G1*=.72;B1*=.7}
       // chão de floresta
-      const fo=(tm[a]*w00+tm[b]*w10+tm[c]*w01+tm[e]*w11);if(fo>0){const k=fo*.7;R1+=(gp.forest[0]+n2*16-R1)*k;G1+=(gp.forest[1]+n2*10-G1)*k;B1+=(gp.forest[2]-B1)*k}
+      const fo=(tm[a]*w00+tm[b]*w10+tm[c]*w01+tm[e]*w11);if(fo>0){const k=fo*.7;R1+=(gp.forest[0]+n2*16-R1)*k;G1+=(gp.forest[1]+n2*10-G1)*k;B1+=(gp.forest[2]-B1)*k;
+        if(!win&&!des&&fo>.2&&fine>.975){const h3=hsh(px,py+3);R1=h3<.5?150:120;G1=h3<.5?84:96;B1=h3<.5?40:44}}
       // pátios de casas
       const yv=(ym[a]*w00+ym[b]*w10+ym[c]*w01+ym[e]*w11)+(n2-.5)*.5;if(yv>.4){const k=clamp((yv-.4)*1.8,0,.75);R1+=(gp.yard[0]-R1)*k;G1+=(gp.yard[1]-G1)*k;B1+=(gp.yard[2]-B1)*k}
       // lavouras
@@ -1789,23 +1795,67 @@ const HAS3=!!window.THREE;const _p3=HAS3&&new THREE.Vector3(),_q3=HAS3&&new THRE
 
 
 // ---------- árvores 3D (instanciadas)
+// ---------- árvores e vegetação (cor por vértice, forma irregular, sombra interna)
+const hs3=(x,y,z,s)=>{const f=v=>{v=Math.sin(v)*43758.5453;return v-Math.floor(v)};return [f(x*127.1+y*311.7+z*74.7+s*13.1)-.5,f(x*269.5+y*183.3+z*246.1+s*7.7)-.5,f(x*113.5+y*271.9+z*124.6+s*3.3)-.5]};
+const mixc=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+function addGeoV(A,geo,fn,m,jit,seed,ctr){let g=geo.index?geo.toNonIndexed():geo;const p=g.attributes.position;
+  if(jit){for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),h=hs3(Math.round(x*500)/500,Math.round(y*500)/500,Math.round(z*500)/500,seed||0);p.setXYZ(i,x+h[0]*jit,y+h[1]*jit,z+h[2]*jit)}}
+  g.applyMatrix4(m);g.computeVertexNormals();const P=g.attributes.position.array,N=g.attributes.normal.array;
+  for(let i=0;i<P.length;i+=3){let nx=N[i],ny=N[i+1],nz=N[i+2];
+    if(ctr){let sx=P[i]-ctr[0],sy=P[i+1]-ctr[1],sz=P[i+2]-ctr[2];const l=Math.hypot(sx,sy,sz)||1;nx=nx*.3+sx/l*.7;ny=ny*.3+sy/l*.7;nz=nz*.3+sz/l*.7;const l2=Math.hypot(nx,ny,nz)||1;nx/=l2;ny/=l2;nz/=l2}
+    A.p.push(P[i],P[i+1],P[i+2]);A.n.push(nx,ny,nz);const c=fn(P[i],P[i+1],P[i+2],nx,ny,nz);A.c.push(Math.min(1,c[0]/255),Math.min(1,c[1]/255),Math.min(1,c[2]/255))}
+  g.dispose();if(g!==geo)geo.dispose()}
+const qY=(dx,dy,dz)=>new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(dx,dy,dz).normalize());
+const M4q=(x,y,z,q,s)=>new THREE.Matrix4().compose(new THREE.Vector3(x,y,z),q,new THREE.Vector3(s||1,s||1,s||1));
 function treeGeo(kind,seed){
-  const A={p:[],n:[],c:[]};const r=mulberry32(seed);
-  const T=THREE;
-  if(kind==='pine'||kind==='spine'){const snow=kind==='spine';addGeo(A,new T.CylinderGeometry(.035,.055,.5,6),[74,54,38],M4(0,.25,0));
-    for(let L=0;L<4;L++){const rad=.44-L*.09,y=.42+L*.27;const c=snow?(L%2?[222,230,234]:[52,74,58]):(L%2?[52,82,54]:[44,70,48]);addGeo(A,new T.ConeGeometry(rad,.52,7),c,M4(0,y,0,r()*6))}
-    if(snow)addGeo(A,new T.ConeGeometry(.12,.22,6),[236,240,244],M4(0,1.32,0))}
-  else if(kind==='bare'){addGeo(A,new T.CylinderGeometry(.03,.06,1.1,6),[70,56,46],M4(0,.55,0));
-    for(let k=0;k<7;k++){const a=r()*6.28,y=.45+r()*.5,len=.3+r()*.3;addGeo(A,new T.CylinderGeometry(.008,.02,len,4),[80,66,54],M4(Math.cos(a)*len*.35,y+len*.3,Math.sin(a)*len*.35,-a,0,.9))}
-    for(let k=0;k<5;k++)addGeo(A,new T.IcosahedronGeometry(.07+r()*.05,0),[226,232,236],M4((r()-.5)*.4,.7+r()*.4,(r()-.5)*.4))}
-  else if(kind==='palm'||kind==='palm2'){const h=kind==='palm'?1.25:.9;let x=0,z=0;const lean=r()*6.28,lx=Math.cos(lean)*.04,lz=Math.sin(lean)*.04;
-    for(let k=0;k<6;k++){addGeo(A,new T.CylinderGeometry(.035,.045,h/6+.02,6),k%2?[132,104,70]:[116,90,60],M4(x,h/6*(k+.5),z));x+=lx*(k*.4);z+=lz*(k*.4)}
-    for(let k=0;k<9;k++){const a=k/9*6.28+r()*.3;const fr=new T.BoxGeometry(.6,.012,.1);fr.translate(.3,0,0);addGeo(A,fr,k%2?[78,116,50]:[96,132,58],M4(x,h,z,-a,0,-.45-r()*.25))}
-    addGeo(A,new T.IcosahedronGeometry(.06,0),[100,72,40],M4(x,h-.03,z))}
-  else{const birch=kind==='birch';addGeo(A,new T.CylinderGeometry(.035,.06,.62,6),birch?[226,222,212]:[72,54,38],M4(0,.31,0));
-    const col=birch?[204,176,72]:kind==='oakA'?[[166,98,46],[154,122,54],[176,84,40]][(r()*3)|0]:[[72,98,50],[86,110,56],[64,88,46]][(r()*3)|0];
-    for(let k=0;k<6;k++){const a=r()*6.28,d=r()*.22;const s=(birch?.16:.22)+r()*.1;const m=.82+r()*.3;addGeo(A,new T.IcosahedronGeometry(s,0),col.map(c=>c*m),M4(Math.cos(a)*d,.78+r()*.25,Math.sin(a)*d,r()*6))}}
+  const A={p:[],n:[],c:[]};const r=mulberry32(seed);const T=THREE;
+  if(kind==='pine'||kind==='spine'){const snow=kind==='spine';const tiers=5+((r()*3)|0),H=1.3+r()*.4;
+    addGeoV(A,new T.CylinderGeometry(.028,.06,.55,5,1,true),()=>[68,50,36],M4(0,.27,0),.006,1);
+    for(let L=0;L<tiers;L++){const t=L/(tiers-1),rad=(.5-.36*t)*(.88+r()*.24),h=.46-.16*t,y=.26+t*(H-.5);const g=new T.ConeGeometry(rad,h,8,1,true);g.translate(0,h/2,0);
+      addGeoV(A,g,(x,yy,z,nx,ny)=>{const rr=Math.min(1,Math.hypot(x,z)/rad);let c=mixc([22,44,30],[58,92,56],Math.min(1,.15+.6*rr+.25*t));c=c.map(v=>v*(.82+.28*Math.max(0,ny)));
+        if(snow&&ny>.4){const k=Math.min(1,(ny-.4)*3)*(.8+.5*(hs3(x,yy,z,9)[0]));c=mixc(c,[228,234,240],Math.max(0,Math.min(.95,k)))}return c},M4(0,y,0,r()*6),.05,L+2)}
+    if(snow)addGeoV(A,new T.ConeGeometry(.09,.2,7),(x,y,z,nx,ny)=>ny>.1?[236,240,246]:[60,84,64],M4(0,H+.04,0),.015,40)}
+  else if(kind==='bare'){const H=1.05+r()*.3;addGeoV(A,new T.CylinderGeometry(.025,.065,H,5,2,true),(x,y,z,nx,ny)=>ny>.55?[220,226,232]:[66,54,44],M4(0,H/2,0),.01,1);
+    for(let k=0;k<5;k++){const a=k/5*6.28+r()*.5,y0=.4+r()*(H-.5),len=.25+r()*.3,dx=Math.cos(a),dz=Math.sin(a),up=.6+r()*.5;
+      const q=qY(dx,up,dz),ex=dx*len*.55,ey=up*len*.55,ez=dz*len*.55;
+      addGeoV(A,new T.CylinderGeometry(.007,.02,len,4,1,true),(x,y,z,nx,ny)=>ny>.45?[226,230,236]:[72,60,48],M4q(ex*.5,y0+ey*.5,ez*.5,q),.004,k+3);
+      for(let j=0;j<2;j++){const b=a+(j?.6:-.6),l2=len*.5,q2=qY(Math.cos(b),up+.3,Math.sin(b));addGeoV(A,new T.CylinderGeometry(.004,.01,l2,3,1,true),(x,y,z,nx,ny)=>ny>.45?[226,230,236]:[76,64,52],M4q(ex+Math.cos(b)*l2*.25,y0+ey+(up+.3)*l2*.2,ez+Math.sin(b)*l2*.25,q2),.003,k*3+j)}}}
+  else if(kind==='palm'||kind==='palm2'){const H=kind==='palm'?1.15+r()*.3:.8+r()*.2;const lean=r()*6.28,lx=Math.cos(lean),lz=Math.sin(lean),bend=.18+r()*.2;let px=0,py=0,pz=0;
+    for(let k=0;k<6;k++){const t1=(k+1)/6,nx=lx*bend*t1*t1,ny=H*t1,nz=lz*bend*t1*t1;const dx=nx-px,dy=ny-py,dz=nz-pz,l=Math.hypot(dx,dy,dz);
+      addGeoV(A,new T.CylinderGeometry(.034,.042,l*1.08,6,1,true),(x,y,z,nnx,nny)=>k%2?[128,100,68]:[106,82,56],M4q((px+nx)/2,(py+ny)/2,(pz+nz)/2,qY(dx,dy,dz)),.004,k+1);px=nx;py=ny;pz=nz}
+    const nf=9+((r()*2)|0);
+    for(let f=0;f<nf;f++){const a=f/nf*6.28+r()*.3,dead=f<2,L=(dead?.45:.55)+r()*.18,ca=Math.cos(a),sa=Math.sin(a),seg=5,P=[];const lift=dead?-.1:.12+r()*.1;
+      for(let k=0;k<=seg;k++){const t=k/seg,d=t*L;P.push([px+ca*d,py+lift*Math.sin(Math.PI*t*.7)-d*d*(dead?1.6:.85),pz+sa*d])}
+      const pos=[],col=[];const base=dead?[150,120,70]:[52,88,40],tip=dead?[176,146,92]:[120,150,62];
+      for(let k=0;k<seg;k++){const a0=P[k],a1=P[k+1],t=k/seg,w=(.13*(1-t)+.03),px2=-sa*w,pz2=ca*w;
+        for(const sd of [-1,1]){const lx2=(a0[0]+a1[0])/2+px2*sd,ly2=(a0[1]+a1[1])/2-.05*(1-t),lz2=(a0[2]+a1[2])/2+pz2*sd;pos.push(...a0,lx2,ly2,lz2,...a1);const c=mixc(base,tip,t);col.push(c,c,mixc(base,tip,t+.15))}}
+      const vc=col;let vi=0;const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));addGeoV(A,g,()=>vc[vi++]||base,new T.Matrix4(),0,0)}
+    for(let k=0;k<2;k++)addGeoV(A,new T.IcosahedronGeometry(.035,0),()=>[96,70,40],M4(px+(r()-.5)*.08,py-.06,pz+(r()-.5)*.08),.005,k)}
+  else{const birch=kind==='birch',autumn=kind==='oakA';const H=birch?.9+r()*.25:.62+r()*.2;
+    addGeoV(A,new T.CylinderGeometry(birch?.03:.045,birch?.045:.075,H,6,birch?3:1,true),(x,y,z)=>birch?(hs3(x,Math.round(y*14),z,3)[0]>.25?[40,38,34]:[226,224,214]):[70,52,36],M4(0,H/2,0),.012,1);
+    const cy=H+(birch?.18:.22),pal=birch?[[176,170,70],[150,158,62],[198,176,80]]:autumn?[[186,92,36],[204,132,44],[168,62,32],[196,160,58]]:[[64,98,46],[78,112,52],[56,88,42],[92,118,58]];
+    const nb=3+((r()*2)|0);for(let k=0;k<nb;k++){const a=k/nb*6.28+r()*.6,dx=Math.cos(a)*.28,dz=Math.sin(a)*.28,len=.32;addGeoV(A,new T.CylinderGeometry(.012,.03,len,4,1,true),()=>birch?[214,212,204]:[74,56,40],M4q(dx*.4,H*.78+.1,dz*.4,qY(dx,.32,dz)),.006,k+5)}
+    const nl=birch?7:9;for(let k=0;k<nl;k++){const a=r()*6.28,d=Math.sqrt(r())*(birch?.2:.3),bx=Math.cos(a)*d,bz=Math.sin(a)*d,by=cy+(r()-.35)*(birch?.4:.3)+(1-d/.3)*.08,rad=(birch?.11:.16)+r()*(birch?.07:.09);
+      const base=pal[(r()*pal.length)|0],var_=.86+r()*.26;
+      addGeoV(A,new T.IcosahedronGeometry(rad,0),(x,y,z,nx,ny)=>{const sh=.55+.3*Math.max(-.2,ny)+.32*Math.min(1,Math.max(0,(y-(cy-.25))/.55));return base.map(v=>v*var_*sh)},M4(bx,by,bz,r()*6,0,0,1,.85+r()*.2),rad*.22,k+11,[bx,by,bz])}}
   return mkGeo(A)}
+// capim, arbustos e pedras (instanciados por bloco)
+function grassGeo(bio,seed){const A={p:[],n:[],c:[]};const r=mulberry32(seed);const T=THREE;
+  const base=bio==='inverno'?[118,108,78]:bio==='deserto'?[150,128,78]:[52,78,34],tip=bio==='inverno'?[186,174,128]:bio==='deserto'?[206,186,128]:[148,156,72];
+  const nb=bio==='outono'?6:5;for(let k=0;k<nb;k++){const a=r()*6.28,d=r()*.035,x=Math.cos(a)*d,z=Math.sin(a)*d,h=.1+r()*.1,la=r()*6.28,lean=.03+r()*.05,w=.012+r()*.006,ra=r()*3.14;
+    const pos=[x-Math.cos(ra)*w,0,z-Math.sin(ra)*w,x+Math.cos(ra)*w,0,z+Math.sin(ra)*w,x+Math.cos(la)*lean,h,z+Math.sin(la)*lean];
+    const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));addGeoV(A,g,(xx,y)=>mixc(base,tip,Math.min(1,y/.16)),new T.Matrix4(),0,0)}
+  return mkGeo(A)}
+function bushGeo(bio,seed){const A={p:[],n:[],c:[]};const r=mulberry32(seed);const pal=bio==='inverno'?[[54,70,52],[66,80,60]]:bio==='deserto'?[[112,112,66],[132,118,74]]:[[54,84,40],[70,98,46],[96,96,44]];
+  const n=2+((r()*2)|0);for(let k=0;k<n;k++){const rad=.06+r()*.05,bx=(r()-.5)*.1,bz=(r()-.5)*.1,by=rad*.7,c0=pal[(r()*pal.length)|0];
+    addGeoV(A,new THREE.IcosahedronGeometry(rad,0),(x,y,z,nx,ny)=>{let c=c0.map(v=>v*(.6+.45*Math.max(0,ny)));if(bio==='inverno'&&ny>.3)c=mixc(c,[230,236,242],Math.min(1,(ny-.3)*2.2));return c},M4(bx,by,bz,r()*6,0,0,1,.8),rad*.25,k+3,[bx,by,bz])}
+  return mkGeo(A)}
+function rockGeo(bio,seed){const A={p:[],n:[],c:[]};const r=mulberry32(seed);const c0=bio==='deserto'?[164,138,104]:bio==='inverno'?[118,118,116]:[120,116,104];
+  addGeoV(A,new THREE.IcosahedronGeometry(.07+r()*.05,0),(x,y,z,nx,ny)=>{let c=c0.map(v=>v*(.7+.35*Math.max(0,ny)));if(bio==='inverno'&&ny>.4)c=mixc(c,[232,236,240],.85);return c},M4(0,.02,0,r()*6,0,0,1,.6),.03,seed);
+  return mkGeo(A)}
+const WINDU={value:0};
+function windify(mat,amp,base){const prev=mat.onBeforeCompile;mat.onBeforeCompile=sh=>{prev(sh);sh.uniforms.uWind=WINDU;
+  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uWind;').replace('#include <begin_vertex>','#include <begin_vertex>\n#ifdef USE_INSTANCING\nvec2 wp=vec2(instanceMatrix[3][0],instanceMatrix[3][2]);\n#else\nvec2 wp=vec2(0.);\n#endif\nfloat wh=max(0.,transformed.y-'+base.toFixed(2)+');float ws=wh*wh*'+amp.toFixed(3)+';transformed.x+=sin(uWind*1.6+wp.x*.37+wp.y*.21)*ws;transformed.z+=cos(uWind*1.2+wp.y*.33)*ws*.6;')};return mat}
 
 // ---------- inicialização
 function makeDetail(){const n=256,d=new Uint8Array(n*n*4);const r=mulberry32(99);const nz=makeNoise(r),nz2=makeNoise(r);
@@ -1832,7 +1882,7 @@ function disposeTree(o){o.traverse(c=>{if(c.isMesh&&c.userData.own){c.geometry.d
 function build3D(){
   const sc=S3.scene,B=BIOMES[G.biome];
   for(const c of sc.children.slice()){sc.remove(c);disposeTree(c)}
-  if(S3.treeGeos)for(const g of S3.treeGeos)g.dispose();
+  if(S3.treeGeos)for(const g of S3.treeGeos)g.dispose();if(S3.gcGeos)for(const g of S3.gcGeos)g.dispose();S3.gcGeos=null;
   if(S3.gtex)S3.gtex.dispose();
   S3.U=new Map();S3.O=new Map();S3.inst=new Map();S3.W=new Map();
   S3.sun.color.set(B.sunC);S3.sun.intensity=B.sunI;S3.hemi.color.set(B.sky);S3.hemi.groundColor.set(B.gnd);S3.hemi.intensity=B.hemiI;S3.r.setClearColor(B.clear);
@@ -1853,14 +1903,30 @@ function build3D(){
   // saia escura em volta do mapa
   const sk=new THREE.Mesh(new THREE.PlaneGeometry(NX+300,NY+300).rotateX(-Math.PI/2).translate(NX/2,-.6,NY/2),new THREE.MeshBasicMaterial({color:B.clear}));sk.userData.own=true;sk.userData.ownMat=true;sc.add(sk);
   // árvores (blocos de 32x32 tiles, visibilidade manual)
-  const kinds=B.trees;const geos=kinds.map((k,i)=>treeGeo(k,G.seed+i*31));const CS=32,NC=Math.ceil(NX/CS);const cnt=new Map(),pick=new Map();
-  for(let i=0;i<NN;i++)if(Fm[i]===1){const v=(hsh(i,4)*kinds.length)|0;const ch=((((i/NX)|0)/CS)|0)*NC+(((i%NX)/CS)|0);const key=ch*8+v;const k=cnt.get(key)||0;cnt.set(key,k+1);pick.set(i,[key,k])}
+  const kinds=B.trees,VAR=3;const geos=[];kinds.forEach((k,i)=>{for(let v=0;v<VAR;v++)geos.push(treeGeo(k,G.seed+i*31+v*977))});const CS=32,NC=Math.ceil(NX/CS);const cnt=new Map(),pick=new Map();
+  if(!S3.matTree){S3.matTree=windify(fogify(new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide})),.022,.3);S3.matGC=windify(fogify(new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide})),1.1,.0)}
+  for(let i=0;i<NN;i++)if(Fm[i]===1){const v=((hsh(i,4)*kinds.length)|0)*VAR+((hsh(i,6)*VAR)|0);const ch=((((i/NX)|0)/CS)|0)*NC+(((i%NX)/CS)|0);const key=ch*32+v;const k=cnt.get(key)||0;cnt.set(key,k+1);pick.set(i,[key,k])}
   S3.treeM=new Map();S3.treeCh=[];
-  for(const [key,c] of cnt){const v=key%8,ch=(key/8)|0;const m=new THREE.InstancedMesh(geos[v],S3.matV,c);m.castShadow=true;m.receiveShadow=true;m.frustumCulled=false;m.userData.own=false;sc.add(m);S3.treeM.set(key,m);
+  for(const [key,c] of cnt){const v=key%32,ch=(key/32)|0;const m=new THREE.InstancedMesh(geos[v],S3.matTree,c);m.castShadow=true;m.receiveShadow=true;m.frustumCulled=false;m.userData.own=false;sc.add(m);S3.treeM.set(key,m);
     S3.treeCh.push({m,x0:(ch%NC)*CS,y0:((ch/NC)|0)*CS})}
   for(const [i,[key,k]] of pick){const x=i%NX,y=(i/NX)|0;const ox=(hsh(i,1)-.5)*.35,oy=(hsh(i,2)-.5)*.35;const s=.8+hsh(i,3)*.45;
-    S3.treeM.get(key).setMatrixAt(k,M4(x+.5+ox,GH(x+.5+ox,y+.5+oy)-.02,y+.5+oy,hsh(i,5)*6.28,0,0,s))}
-  for(const m of S3.treeM.values())m.instanceMatrix.needsUpdate=true;
+    const tm=S3.treeM.get(key);tm.setMatrixAt(k,M4(x+.5+ox,GH(x+.5+ox,y+.5+oy)-.02,y+.5+oy,hsh(i,5)*6.28,0,0,s,s*(.9+hsh(i,7)*.25)));const br=.86+hsh(i,8)*.26,hu=(hsh(i,9)-.5)*.1;tm.setColorAt(k,new THREE.Color(br*(1+hu),br,br*(1-hu)))}
+  for(const m of S3.treeM.values()){m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true}
+  // vegetação rasteira: capim, arbustos na beira da mata e pedras
+  {const bio=G.biome,dens=bio==='outono'?.42:bio==='inverno'?.1:.05;const gg=[grassGeo(bio,G.seed+1),grassGeo(bio,G.seed+2),grassGeo(bio,G.seed+3)],bg=[bushGeo(bio,G.seed+4),bushGeo(bio,G.seed+5)],rg=[rockGeo(bio,G.seed+6),rockGeo(bio,G.seed+7)];
+    const all=gg.concat(bg,rg),cnt2=new Map(),lst=[];S3.gcPick=new Map();
+    const add=(i,gi,x,y,rot,sc)=>{const ch=((y/CS)|0)*NC+((x/CS)|0),key=ch*16+gi;const k=cnt2.get(key)||0;cnt2.set(key,k+1);lst.push([key,k,i,x,y,rot,sc])};
+    for(let i=0;i<NN;i++){if(Fm[i]!==0||Gm[i]===1||Mm[i]===2)continue;const x=i%NX,y=(i/NX)|0;if(clearZone(x,y))continue;
+      let nearT=0;for(const [a,b] of [[1,0],[-1,0],[0,1],[0,-1]]){const xx=x+a,yy=y+b;if(inb(xx,yy)&&Fm[idx(xx,yy)]===1)nearT++}
+      const d=(Gm[i]===2?dens*.4:dens)*(1+nearT*.5);let n=Math.floor(d*2+hsh(i,21));for(let k=0;k<n;k++)add(i,((hsh(i,30+k)*3)|0),x+.15+hsh(i,40+k)*.7,y+.15+hsh(i,50+k)*.7,hsh(i,60+k)*6.28,.8+hsh(i,70+k)*.5);
+      if(nearT&&hsh(i,22)<.35)add(i,3+((hsh(i,23)*2)|0),x+.3+hsh(i,24)*.4,y+.3+hsh(i,25)*.4,hsh(i,26)*6.28,.8+hsh(i,27)*.6);
+      if(hsh(i,28)<.012)add(i,5+((hsh(i,29)*2)|0),x+.5,y+.5,hsh(i,31)*6.28,.7+hsh(i,32)*1.2)}
+    const ims=new Map();for(const [key,c] of cnt2){const gi=key%16,ch=(key/16)|0;const m=new THREE.InstancedMesh(all[gi],gi<3?S3.matGC:S3.matTree,c);m.receiveShadow=true;m.castShadow=gi>=5;m.frustumCulled=false;m.userData.own=false;sc.add(m);ims.set(key,m);
+      S3.treeCh.push({m,x0:(ch%NC)*CS,y0:((ch/NC)|0)*CS})}
+    const M=new THREE.Matrix4();for(const [key,k,i,x,y,rot,sc] of lst){const m=ims.get(key);m.setMatrixAt(k,M4(x,GH(x,y)-.01,y,rot,0,0,sc));const br=.85+hsh(i,k+80)*.3;m.setColorAt(k,new THREE.Color(br,br,br*(.95+hsh(i,k+81)*.1)));
+      let a=S3.gcPick.get(i);if(!a)S3.gcPick.set(i,a=[]);a.push([m,k])}
+    for(const m of ims.values()){m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true}
+    S3.gcGeos=all}
   S3.treeGeos=geos;
   S3.treePick=pick;
   // decoração estática: postes, tufos, caixas dos depósitos
@@ -1869,7 +1935,7 @@ function build3D(){
       const nx=-(b[1]-a[1])/d,ny=(b[0]-a[0])/d;const x=b[0]+nx*1.1,y=b[1]+ny*1.1;const i=tix(x,y);if(Fm[i]!==0||Gm[i]===1||!inb(x|0,y|0))continue;const g=GH(x,y);
       addGeo(Ak(x,y),new THREE.CylinderGeometry(.022,.03,1.35,5),COMMON.pole,M4(x,g+.67,y));addGeo(Ak(x,y),new THREE.BoxGeometry(.36,.035,.035),COMMON.pole,M4(x,g+1.25,y,-Math.atan2(b[1]-a[1],b[0]-a[0])+1.57))}}
   const tuft=B.tuft;
-  for(let k=0;k<Math.round(260*SC*2);k++){const x=rr()*NX,y=rr()*NY,i=tix(x,y);if(Fm[i]!==0||Gm[i]===1)continue;const g=GH(x,y);
+  for(let k=0;k<0;k++){const x=rr()*NX,y=rr()*NY,i=tix(x,y);if(Fm[i]!==0||Gm[i]===1)continue;const g=GH(x,y);
     if(tuft==='grass'){for(let j=0;j<5;j++)addGeo(Ak(x,y),new THREE.ConeGeometry(.012,.16+rr()*.1,3),[124,118,96],M4(x+(rr()-.5)*.08,g+.08,y+(rr()-.5)*.08,0,(rr()-.5)*.6,(rr()-.5)*.6))}
     else if(tuft==='shrub')addGeo(Ak(x,y),new THREE.IcosahedronGeometry(.07+rr()*.06,0),[134,128,82],M4(x,g+.04,y,rr()*6,0,0,1,.6));
     else addGeo(Ak(x,y),new THREE.IcosahedronGeometry(.08+rr()*.07,0),[[58,80,42],[74,92,46],[120,96,44]][(rr()*3)|0],M4(x,g+.05,y,rr()*6,0,0,1,.7))}
@@ -1942,6 +2008,7 @@ function sync3D(dt){
   // mudanças de terreno
   const fm=S3.fm;let stat=false;
   for(let i=0;i<NN;i++){const a=fm[i],b=Fm[i];if(a===b)continue;
+    if(b!==0&&b!==1&&S3.gcPick&&S3.gcPick.has(i)){for(const [m,k] of S3.gcPick.get(i)){m.setMatrixAt(k,new THREE.Matrix4().makeScale(0,0,0));m.instanceMatrix.needsUpdate=true}S3.gcPick.delete(i)}
     if(a===1){const p=S3.treePick.get(i);if(p){const m=S3.treeM.get(p[0]);m.setMatrixAt(p[1],new THREE.Matrix4().makeScale(0,0,0));m.instanceMatrix.needsUpdate=true}}
     if(a===2||a===5||a===6||a===8||a===9||b===2||b===5||b===6||b===8||b===9){stat=true;const x=i%NX,y=(i/NX)|0;for(const [dx,dy] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]]){const xx=x+dx,yy=y+dy;if(inb(xx,yy))S3.statK.add(((yy/32)|0)*100+((xx/32)|0))}}fm[i]=b}
   if(stat)S3.statDirty=true;
@@ -2098,7 +2165,7 @@ function drawWeather(dt){
   ctx.fillStyle='rgba(255,255,255,.85)';for(const f of FLAKES){f.y+=f.v*dt;f.x+=(-.012+Math.sin(G.t*.8+f.ph)*.006)*dt;if(f.y>1)f.y-=1;if(f.x<0)f.x+=1;if(f.x>1)f.x-=1;ctx.globalAlpha=.4+f.s*.25;circ(f.x*W,f.y*H,f.s)}ctx.globalAlpha=1}
 
 let lastRT=performance.now();
-function render(){
+function render(){WINDU.value=performance.now()/1000;
   const now=performance.now(),dt=Math.min(.05,(now-lastRT)/1000);lastRT=now;
   const z=cam.z;let sx=0,sy=0;if(cam.shake>0){sx=(R()-.5)*cam.shake*10;sy=(R()-.5)*cam.shake*10}
   cam.x+=sx/z;cam.y+=sy/z;
@@ -2333,7 +2400,7 @@ function showErr(e){const b=$('errbox');if(!b)return;b.hidden=false;$('errTxt').
 window.addEventListener('error',ev=>showErr(ev.error||ev.message));window.addEventListener('unhandledrejection',ev=>showErr(ev.reason));
 let slowT=0,lowQ=false;S3.fN=0;
 function frame(now){const raw=(now-last)/1000;const dt=Math.min(.05,raw);last=now;
-  if(!lowQ&&G&&!G.demo&&!LOADING){slowT=raw>.034?slowT+raw:Math.max(0,slowT-raw*.5);if(slowT>2){lowQ=true;S3.r.shadowMap.autoUpdate=false;S3.r.shadowMap.needsUpdate=true;S3.r.setPixelRatio(1);S3.sun.shadow.mapSize.set(1024,1024);if(S3.sun.shadow.map){S3.sun.shadow.map.dispose();S3.sun.shadow.map=null}resize()}}
+  if(!lowQ&&G&&!G.demo&&!LOADING){slowT=raw>.034?slowT+raw:Math.max(0,slowT-raw*.5);if(slowT>2){lowQ=true;if(S3.treeCh)for(const t of S3.treeCh)t.m.castShadow=false;S3.r.shadowMap.autoUpdate=false;S3.r.shadowMap.needsUpdate=true;S3.r.setPixelRatio(1);S3.sun.shadow.mapSize.set(1024,1024);if(S3.sun.shadow.map){S3.sun.shadow.map.dispose();S3.sun.shadow.map=null}resize()}}
   if(G&&!LOADING){if(!G.paused)update(dt);if(lowQ&&(++S3.fN)%3===0)S3.r.shadowMap.needsUpdate=true;render();
     if(!G.demo){G.timers.hud-=dt;if(G.timers.hud<=0){G.timers.hud=.2;updHUD()}G.timers.mm-=dt;if(G.timers.mm<=0){G.timers.mm=.25;drawMini()}}}
   requestAnimationFrame(frame)}
@@ -2362,7 +2429,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&G&&!G.demo
 if(!matchMedia('(pointer:coarse)').matches)$('deskNote').hidden=false;
 
 if(!init3D()){$('nogl').hidden=false}else{makeSprites();resize();requestAnimationFrame(frame)}
-window.__CE={SND,killUnit:u=>killUnit(u),cam,boomFx:(x,y,h,r)=>boomFx(x,y,h,r),get G(){return G},get LOADING(){return LOADING},get projs(){return G.projs},sbg:(a,b,c,d)=>soldierBodyGeo(a,b,c,d),rigImg:()=>RIG.img,sgg:(a,b,c,d)=>soldierGearGeo(a,b,c,d),orderBoard:(a,b)=>orderBoard(a,b),unloadAPC:a=>unloadAPC(a),deploySmoke:(x,y,r,t)=>deploySmoke(x,y,r,t),los:(a,b)=>los(a,b),selectUnits:u=>selectUnits(u),get Fm(){return Fm},get Mm(){return Mm},NX,NY,get gcv(){return gcv},S3,update:dt=>update(dt),newGame,orderMove,camTo,P,mkUnit,place,UT,BT};
+window.__CE={SND,killUnit:u=>killUnit(u),cam,boomFx:(x,y,h,r)=>boomFx(x,y,h,r),get G(){return G},get LOADING(){return LOADING},treeGeo:(k,s)=>treeGeo(k,s),get projs(){return G.projs},sbg:(a,b,c,d)=>soldierBodyGeo(a,b,c,d),rigImg:()=>RIG.img,sgg:(a,b,c,d)=>soldierGearGeo(a,b,c,d),orderBoard:(a,b)=>orderBoard(a,b),unloadAPC:a=>unloadAPC(a),deploySmoke:(x,y,r,t)=>deploySmoke(x,y,r,t),los:(a,b)=>los(a,b),selectUnits:u=>selectUnits(u),get Fm(){return Fm},get Mm(){return Mm},NX,NY,get gcv(){return gcv},S3,update:dt=>update(dt),newGame,orderMove,camTo,P,mkUnit,place,UT,BT};
 })();
 </script>
 <!--ARTIFACT-BODY-END-->
