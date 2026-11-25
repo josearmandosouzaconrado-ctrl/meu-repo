@@ -69,6 +69,7 @@ Abrir com `#auto` no fim do endereço coloca a IA para jogar pelos dois lados (m
 - Antitanque do jogador: modelo FGM-148 Javelin enviado pelo usuário, simplificado de 11,8 mil para cerca de 1,1 mil triângulos. A origem/licença desse modelo não veio no arquivo; confirme antes de distribuir.
 - Caça do jogador: modelo "Boeing F/A-18F Super Hornet - Free" enviado pelo usuário (arquivo original em `assets/fa18`), simplificado de 47 mil para cerca de 4 mil triângulos, com textura reduzida a 512 px e versões com trem de pouso recolhido e baixado.
 - Caça inimigo: modelo Sukhoi Su-27 enviado pelo usuário (arquivo .rar de 20 MB, não incluído no repositório), simplificado para cerca de 4,7 mil triângulos com textura reduzida a 512 px. A licença não veio no arquivo; confirme antes de distribuir.
+- Barco de desembarque (modo Invasão): modelo "US Marine Landing Craft Utility" enviado pelo usuário (Sketchfab, arquivo .usdz de 8,6 MB não incluído), simplificado de 485 mil para cerca de 4,6 mil triângulos; a rampa de proa foi refeita à parte para abrir e fechar.
 - Fuzil dos fuzileiros: Colt M4A1 low poly enviado pelo usuário (arquivo original em `assets/m4a1`), simplificado de 7,8 mil para cerca de 600 triângulos.
 - Sons de fuzil, metralhadora e canhão: gravações enviadas pelo usuário (originais em `assets/sounds`), recortadas em tiros e rajadas; explosões, granadas e foguetes são sintetizados.
 - Motor 3D: [three.js](https://threejs.org) (MIT).
