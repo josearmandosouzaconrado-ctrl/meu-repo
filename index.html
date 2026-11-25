@@ -1566,12 +1566,10 @@ function soldierBodyGeo(lod,type,pose,fr){
   SOLG.set(key,g);return g}
 function soldierGearGeo(type,pose,fr,team){
   const key='G'+type+pose+fr+team;let g=SOLG.get(key);if(g)return g;
-  const sp=solvePose(type,pose,fr);const A=NA();CAMO_K=0;const band=PAL[team].team,gun=[34,34,31],gun2=[66,58,46],tube=[86,94,68];
+  const sp=solvePose(type,pose,fr);const A=NA();CAMO_K=0;const band=team===0?[236,198,36]:[204,40,36],gun=[34,34,31],gun2=[66,58,46],tube=[86,94,68];
   const ringAt=(c,up,r,h)=>{const q=new THREE.Quaternion().setFromUnitVectors(V3(0,1,0),up);addSmooth(A,new THREE.CylinderGeometry(r,r,h,16,1,true),band,new THREE.Matrix4().compose(V3(c[0],c[1],c[2]),q,V3(1,1,1)))};
   // faixa no capacete e braçadeira com a cor do time
-  const hup=V3(0,1,0).applyQuaternion(sp.headQ);const hc=sp.headP.clone().add(hup.clone().multiplyScalar(.085));
-  const hupG=V3(hup.z,hup.y,-hup.x);ringAt(toG(hc),hupG,.066*RIG.S/1,.012*RIG.S*3);
-  for(const [S,E] of [[sp.SR,sp.ER],[sp.SL,sp.EL]]){const m=S.clone().lerp(E,.45);const d=E.clone().sub(S).normalize();ringAt(toG(m),V3(d.z,d.y,-d.x),.045*RIG.S,.03*RIG.S)}
+  for(const [S,E] of [[sp.SR,sp.ER],[sp.SL,sp.EL]]){const d=E.clone().sub(S).normalize(),dG=V3(d.z,d.y,-d.x);ringAt(toG(S.clone().lerp(E,.42)),dG,.046*RIG.S,.042*RIG.S);ringAt(toG(S.clone().lerp(E,.62)),dG,.045*RIG.S,.02*RIG.S)}
   const piece=(a,b,t,len,h,w,col,dy)=>{const dir=Math.atan2(-(b[2]-a[2]),b[0]-a[0]),pitch=Math.atan2(b[1]-a[1],Math.hypot(b[0]-a[0],b[2]-a[2]));const L=Math.hypot(b[0]-a[0],b[1]-a[1],b[2]-a[2]);
     const c=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t+(dy||0),a[2]+(b[2]-a[2])*t];addGeo(A,new THREE.BoxGeometry(len*L,h,w),col,M4s(c[0],c[1],c[2],0,dir,pitch))};
   if(sp.butt&&sp.muz&&type==='rifle'&&window.THREE)placeM4(A,toG(sp.butt),toG(sp.muz));
@@ -1588,21 +1586,33 @@ function soldierGearGeo(type,pose,fr,team){
 const SOLPAL={inverno:[{k:[226,230,232],g:[176,182,186],b:[128,134,140]},{k:[206,204,196],g:[156,152,144],b:[112,108,100]}],
   deserto:[{k:[214,192,148],g:[180,156,110],b:[146,118,82]},{k:[196,184,150],g:[160,148,112],b:[120,108,82]}],
   outono:[null,{k:[156,136,104],g:[116,94,64],b:[84,64,46]}]};
+// fardas: jogador com padrão tipo MultiCam (manchas orgânicas e galhinhos), inimigo com padrão digital tipo EMR russo (pixels);
+// mantém a sombra/dobras da textura original, pele natural e botas marrom-escuras
 function soldierTexture(biome,team){
-  const img=RIG.img;const c=document.createElement('canvas');c.width=img.width;c.height=img.height;const x=c.getContext('2d');x.drawImage(img,0,0);
-  const pal=(SOLPAL[biome]||SOLPAL.outono)[team];
-  if(pal){const id=x.getImageData(0,0,c.width,c.height),d=id.data,n=d.length/4;const cls=new Uint8Array(n),val=new Float32Array(n);const sum=[0,0,0,0],cnt=[0,0,0,0];
-    for(let i=0;i<n;i++){const r=d[i*4]/255,g=d[i*4+1]/255,b=d[i*4+2]/255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b),dl=mx-mn||1e-6;const s=mx>0?(mx-mn)/mx:0;
-      let h=mx===r?((g-b)/dl+6)%6:mx===g?(b-r)/dl+2:(r-g)/dl+4;h*=60;val[i]=mx;
-      let k=0;if(mx<.12||(h<28&&s>.3)||(h>=25&&h<45&&s>.6))k=0;else if(h>62&&s>.25)k=2;else if(h<48&&s>.3)k=3;else k=1;cls[i]=k;sum[k]+=mx;cnt[k]++}
-    const mean=sum.map((s,k)=>s/Math.max(1,cnt[k]));const T=[null,pal.k,pal.g,pal.b];
-    for(let i=0;i<n;i++){const k=cls[i];if(!k)continue;const f=val[i]/mean[k]*.55;d[i*4]=Math.min(255,T[k][0]*f);d[i*4+1]=Math.min(255,T[k][1]*f);d[i*4+2]=Math.min(255,T[k][2]*f)}
-    x.putImageData(id,0,0)}
-  const t=new THREE.CanvasTexture(c);t.anisotropy=4;return t}
+  RIG.texC=RIG.texC||{};if(RIG.texC[team])return RIG.texC[team].clone();
+  const img=RIG.img,TS=Math.min(512,img.width),K=img.width/TS;const c=document.createElement('canvas');c.width=c.height=TS;const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(img,0,0,TS,TS);
+  const id=x.getImageData(0,0,TS,TS),d=id.data,W=TS,H=TS,n=W*H;
+  const hs=(i,j,s)=>{const v=Math.sin(i*127.1+j*311.7+s*74.7)*43758.5453;return v-Math.floor(v)};
+  const vn=(px,py,s)=>{const i=Math.floor(px),j=Math.floor(py),fx=px-i,fy=py-j,u=fx*fx*(3-2*fx),v=fy*fy*(3-2*fy);const a=hs(i,j,s),b=hs(i+1,j,s),cc=hs(i,j+1,s),e=hs(i+1,j+1,s);return a+(b-a)*u+(cc-a)*v+(a-b-cc+e)*u*v};
+  const fbm=(px,py,s)=>vn(px,py,s)*.62+vn(px*2.1,py*2.1,s+5)*.28+vn(px*4.3,py*4.3,s+9)*.1;
+  const camo=team===0?(X,Y)=>{// tipo MultiCam
+      const wx=X+(vn(X/45,Y/45,3)-.5)*40,wy=Y+(vn(X/45,Y/45,7)-.5)*40;
+      if(Math.abs(vn(wx/16,wy/5,11)-.5)<.035&&vn(X/60,Y/60,13)>.45)return [62,50,36];
+      if(fbm(wx/62,wy/62,1)>.6)return [88,92,62];if(fbm(wx/48,wy/48,2)>.62)return [108,84,58];if(fbm(wx/36,wy/36,4)>.66)return [164,152,118];return [138,124,94]}
+    :(X,Y)=>{// tipo EMR digital
+      const bx=Math.floor(X/5),by=Math.floor(Y/5);if(vn(bx/3.2,by/3.2,21)>.7)return [36,36,30];if(fbm(bx/7,by/7,22)>.58)return [72,82,52];if(fbm(bx/6,by/6,23)>.6)return [94,74,54];return [116,118,90]};
+  const cls=new Uint8Array(n),old=new Uint8Array(n),val=new Float32Array(n);const sum=[0,0,0],cnt=[0,0,0];
+  for(let i=0;i<n;i++){const r=d[i*4]/255,g=d[i*4+1]/255,b=d[i*4+2]/255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b),dl=mx-mn||1e-6;const s=mx>0?(mx-mn)/mx:0;
+    let h=mx===r?((g-b)/dl+6)%6:mx===g?(b-r)/dl+2:(r-g)/dl+4;h*=60;val[i]=mx;
+    let k=1;if(mx<.1)k=0;else if(h<24&&s>.25)k=2;else if(h>=24&&h<50&&s>.56)k=3;cls[i]=k;if(k===1){const o=h>62&&s>.22?1:h<55&&s>.28?2:0;old[i]=o;sum[o]+=mx;cnt[o]++}}
+  const mean=sum.map((v,o)=>v/Math.max(1,cnt[o]));
+  for(let i=0;i<n;i++){const k=cls[i];if(k===0||k===2)continue;const sh=Math.min(1.25,Math.max(.55,val[i]/(k===1?mean[old[i]]:mean[0])));const X=(i%W)*K,Y=((i/W)|0)*K;
+    const col=k===3?[64,50,38]:camo(X,Y);d[i*4]=Math.min(255,col[0]*sh);d[i*4+1]=Math.min(255,col[1]*sh);d[i*4+2]=Math.min(255,col[2]*sh)}
+  x.putImageData(id,0,0);const t=new THREE.CanvasTexture(c);t.anisotropy=4;RIG.texC[team]=t;return t.clone()}
 function soldierMats(){
-  if(S3.solMat)for(const m of S3.solMat){if(m.map)m.map.dispose();m.dispose()}
-  S3.solMat=[0,1].map(t=>{const m=fogify(new THREE.MeshLambertMaterial({color:0xffffff}));m.color.setRGB(1.3,1.3,1.3);return m});
-  const apply=()=>{for(let t=0;t<2;t++){if(S3.solMat[t].map)S3.solMat[t].map.dispose();S3.solMat[t].map=soldierTexture(G.biome,t);S3.solMat[t].needsUpdate=true}};
+  if(S3.solMat)for(const m of S3.solMat)m.dispose()
+  S3.solMat=[0,1].map(t=>{const m=fogify(new THREE.MeshLambertMaterial({color:0xffffff}));m.color.setRGB(1.18,1.18,1.18);return m});
+  const apply=()=>{for(let t=0;t<2;t++){S3.solMat[t].map=soldierTexture(G.biome,t);S3.solMat[t].map.needsUpdate=true;S3.solMat[t].needsUpdate=true}};
   if(RIG.ready)apply();else RIG.pending=apply}
 function initSoldierAsset(){if(RIG.img)return;RIG.img=new Image();RIG.img.onload=()=>{RIG.ready=true;if(RIG.pending){RIG.pending();RIG.pending=null}};RIG.img.src=SOLDIER_ASSET.tex}
 
@@ -2322,7 +2332,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&G&&!G.demo
 if(!matchMedia('(pointer:coarse)').matches)$('deskNote').hidden=false;
 
 if(!init3D()){$('nogl').hidden=false}else{makeSprites();resize();requestAnimationFrame(frame)}
-window.__CE={SND,killUnit:u=>killUnit(u),cam,boomFx:(x,y,h,r)=>boomFx(x,y,h,r),get G(){return G},get LOADING(){return LOADING},orderBoard:(a,b)=>orderBoard(a,b),unloadAPC:a=>unloadAPC(a),deploySmoke:(x,y,r,t)=>deploySmoke(x,y,r,t),los:(a,b)=>los(a,b),selectUnits:u=>selectUnits(u),get Fm(){return Fm},get Mm(){return Mm},NX,NY,get gcv(){return gcv},S3,update:dt=>update(dt),newGame,orderMove,camTo,P,mkUnit,place,UT,BT};
+window.__CE={SND,killUnit:u=>killUnit(u),cam,boomFx:(x,y,h,r)=>boomFx(x,y,h,r),get G(){return G},get LOADING(){return LOADING},sbg:(a,b,c,d)=>soldierBodyGeo(a,b,c,d),rigImg:()=>RIG.img,sgg:(a,b,c,d)=>soldierGearGeo(a,b,c,d),orderBoard:(a,b)=>orderBoard(a,b),unloadAPC:a=>unloadAPC(a),deploySmoke:(x,y,r,t)=>deploySmoke(x,y,r,t),los:(a,b)=>los(a,b),selectUnits:u=>selectUnits(u),get Fm(){return Fm},get Mm(){return Mm},NX,NY,get gcv(){return gcv},S3,update:dt=>update(dt),newGame,orderMove,camTo,P,mkUnit,place,UT,BT};
 })();
 </script>
 <!--ARTIFACT-BODY-END-->
