@@ -67,6 +67,7 @@ Abrir com `#auto` no fim do endereço coloca a IA para jogar pelos dois lados (m
 - Blindado de transporte: modelo "Stryker ICV (US Army) WARNO mod" por rran81 (Sketchfab, licença padrão do Sketchfab), enviado pelo usuário (arquivo original em `assets/stryker`), simplificado no Blender de 46 mil para cerca de 6,1 mil triângulos, com a torre da metralhadora separada e as cores da textura passadas para os vértices.
 - Metralhadora do jogador: modelo M249 SAW enviado pelo usuário (arquivo original em `assets/m249`), simplificado de 124 mil para cerca de 6,7 mil triângulos, com o bipé recolhido.
 - Antitanque do jogador: modelo FGM-148 Javelin enviado pelo usuário, simplificado de 11,8 mil para cerca de 1,1 mil triângulos. A origem/licença desse modelo não veio no arquivo; confirme antes de distribuir.
+- Caça do jogador: modelo "Boeing F/A-18F Super Hornet - Free" enviado pelo usuário (arquivo original em `assets/fa18`), simplificado de 47 mil para cerca de 4 mil triângulos, com textura reduzida a 512 px e versões com trem de pouso recolhido e baixado.
 - Fuzil dos fuzileiros: Colt M4A1 low poly enviado pelo usuário (arquivo original em `assets/m4a1`), simplificado de 7,8 mil para cerca de 600 triângulos.
 - Sons de fuzil, metralhadora e canhão: gravações enviadas pelo usuário (originais em `assets/sounds`), recortadas em tiros e rajadas; explosões, granadas e foguetes são sintetizados.
 - Motor 3D: [three.js](https://threejs.org) (MIT).
