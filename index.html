@@ -204,14 +204,14 @@ h1 span{display:block;color:transparent;-webkit-text-stroke:1.5px var(--ink)}
 (()=>{
 'use strict';
 // ================================================================ constantes
-const N=192, SC=N/48, TEX=8, PXS=TEX/32, TW2=32, TH2=16, HZ=10, POP=60;
+const NX=384, NY=192, NN=NX*NY, SC=Math.sqrt(NX*NY)/48, TEX=8, PXS=TEX/32, TW2=32, TH2=16, HZ=10, POP=60;
 const cv=document.getElementById('c'), ctx=cv.getContext('2d');
 let W=0,H=0,W2=0,H2=0,DPR=1;
 const $=id=>document.getElementById(id);
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
-const idx=(x,y)=>y*N+x;
-const inb=(x,y)=>x>=0&&y>=0&&x<N&&y<N;
-const tix=(x,y)=>idx(clamp(x|0,0,N-1),clamp(y|0,0,N-1));
+const idx=(x,y)=>y*NX+x;
+const inb=(x,y)=>x>=0&&y>=0&&x<NX&&y<NY;
+const tix=(x,y)=>idx(clamp(x|0,0,NX-1),clamp(y|0,0,NY-1));
 const R=Math.random;
 const CI={inf:0,veh:1,air:2};
 const COV=[0,.3,.55,.7,.45,0,.6,.65,.25,0]; // 0 nada,1 árvore,2 muro,3 casa,4 escombro,5 trincheira,6 sacos,7 base,8 ouriço
@@ -237,9 +237,9 @@ const TEAM=[
 // ================================================================ unidades e construções
 const UT={
   rifle:{name:'Fuzileiro',sh:'Fuz',cls:'inf',hp:100,spd:1.45,sight:9,cost:50,time:5,grenade:true,dig:true,
-    w:{range:7,dmg:16,rof:1.2,acc:.5,supp:8,m:[1,.04,.12],ammo:10}},
+    w:{range:7,dmg:16,rof:1.2,acc:.5,supp:8,m:[1,.04,.3],ammo:10}},
   mg:{name:'Metralhadora',sh:'MG',cls:'inf',hp:110,spd:1.15,sight:9,cost:90,time:7,dig:true,
-    w:{range:9,dmg:7,rof:.2,acc:.34,supp:6,m:[1,.06,.45],ammo:60,setup:1.6}},
+    w:{range:9,dmg:7,rof:.2,acc:.34,supp:6,m:[1,.06,.65],ammo:60,setup:1.6}},
   at:{name:'Antitanque',sh:'AT',cls:'inf',hp:90,spd:1.35,sight:9,cost:100,time:7,dig:true,
     w:{range:8,dmg:220,rof:4.5,acc:.72,supp:20,m:[.3,1,.55],ammo:4,proj:'rocket',splash:.9}},
   medic:{name:'Socorrista',sh:'Soc',cls:'inf',hp:80,spd:1.65,sight:8,cost:60,time:5,medic:true,
@@ -251,13 +251,13 @@ const UT={
   heli:{name:'Helicóptero',sh:'Hel',cls:'air',hp:520,spd:3.1,sight:11,cost:380,time:16,alt:3.6,
     w:{range:8,dmg:120,rof:2.3,acc:.66,supp:25,m:[1,1,0],ammo:10,proj:'rocket',splash:1.1},
     w2:{range:7,dmg:12,rof:.2,acc:.35,supp:8,m:[1,.15,.4],ammo:300}},
-  drone:{name:'Drone FPV',sh:'FPV',cls:'air',hp:25,spd:5.4,sight:8,cost:70,time:5,alt:1.3,kam:{dmg:300,r:1.2,m:[.45,1,.5]}}
+  drone:{name:'Drone FPV',sh:'FPV',cls:'air',hp:22,spd:4.2,sight:7,cost:130,time:11,alt:1.3,kam:{dmg:190,r:.9,m:[.6,.75,.5]}}
 };
 const BT={
   hq:{name:'QG',w:3,h:3,hp:4000,cost:0,time:1,makes:['rifle','medic','truck'],sight:10},
   barracks:{name:'Quartel',w:2,h:2,hp:1200,cost:200,time:18,makes:['rifle','mg','at','medic'],sight:7},
   factory:{name:'Fábrica',w:2,h:2,hp:1500,cost:350,time:25,makes:['tank','truck'],sight:7,req:'barracks'},
-  drones:{name:'Oficina de drones',w:2,h:2,hp:900,cost:220,time:18,makes:['drone'],sight:7,req:'barracks'},
+  drones:{name:'Oficina de drones',w:2,h:2,hp:900,cost:300,time:22,makes:['drone'],sight:7,req:'barracks'},
   heliport:{name:'Heliponto',w:2,h:2,hp:1100,cost:400,time:28,makes:['heli'],sight:7,req:'factory'},
   tower:{name:'Torre de vigia',w:1,h:1,hp:500,cost:120,time:10,makes:[],sight:16,eye:4.5},
   bunker:{name:'Bunker',w:2,h:2,hp:2600,cost:260,time:20,makes:[],sight:8,req:'barracks'},
@@ -267,10 +267,11 @@ const BT={
   mine:{name:'Mina antitanque',w:1,h:1,cost:30,mine:true}
 };
 const BUILD_LIST=['barracks','factory','drones','heliport','tower','bunker','sandbag','wire','hedge','mine'];
-const DEP_HALF=[[.74,.43,'Moinho','Capela'],[.43,.74,'Celeiro','Pedreira'],[.135,.885,'Olaria','Serraria'],[.69,.69,'Fazenda','Estação'],[.6,.555,'Ponte','Forte'],[.3,.92,'Mina','Poço'],[.88,.3,'Represa','Farol'],[.56,.9,'Cemitério','Quartel Velho']];
-const tc=v=>Math.floor(v*N)+.5;
-const DEPOTS=[[N/2,N/2,'Vila']];for(const [x,y,a,b] of DEP_HALF){DEPOTS.push([tc(x),tc(y),a]);DEPOTS.push([N-tc(x),N-tc(y),b])}
-const HQP=[[N-9,N-9],[6,6]];const MID=N/2;
+// mapa retangular 2:1 (~2,7 x 1,35 km): QG do jogador na ponta direita, inimigo na esquerda
+const DEP_HALF=[[.555,.2,'Ponte Norte','Ponte Sul'],[.555,.8,'Moinho','Capela'],[.585,.5,'Ponte','Forte'],[.7,.18,'Olaria','Serraria'],[.7,.82,'Mina','Poço'],[.76,.5,'Fazenda','Estação'],[.84,.32,'Represa','Farol'],[.84,.68,'Cemitério','Quartel Velho'],[.92,.13,'Granja','Usina'],[.92,.87,'Pomar','Vinícola']];
+const tcx=v=>Math.floor(v*NX)+.5,tcy=v=>Math.floor(v*NY)+.5;
+const DEPOTS=[[NX/2,NY/2,'Vila']];for(const [x,y,a,b] of DEP_HALF){DEPOTS.push([tcx(x),tcy(y),a]);DEPOTS.push([NX-tcx(x),NY-tcy(y),b])}
+const HQP=[[NX-9,NY/2-2],[6,NY/2-1]];const MIDX=NX/2,MIDY=NY/2;
 const DIFF=[{inc:.75,wave:8,react:1.6,name:'Recruta'},{inc:1,wave:6,react:1,name:'Sargento'},{inc:1.3,wave:5,react:.7,name:'Comando'}];
 
 // ================================================================ estado
@@ -282,8 +283,8 @@ const cam={x:0,y:0,z:1.3,shake:0};
 function makeNoise(r){const g=new Float32Array(65*65);for(let i=0;i<g.length;i++)g[i]=r();
   return (x,y)=>{x=((x%64)+64)%64;y=((y%64)+64)%64;const xi=x|0,yi=y|0,xf=x-xi,yf=y-yi,u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
     const a=g[yi*65+xi],b=g[yi*65+xi+1],c=g[(yi+1)*65+xi],d=g[(yi+1)*65+xi+1];return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v}}
-function mirrorSet(arr,x,y,v){arr[idx(x,y)]=v;arr[idx(N-1-x,N-1-y)]=v}
-function isHalf(x,y){return x+y<N-1||(x+y===N-1&&x<N/2)}
+function mirrorSet(arr,x,y,v){arr[idx(x,y)]=v;arr[idx(NX-1-x,NY-1-y)]=v}
+function isHalf(x,y){return x<NX/2}
 function clearZone(x,y){const cx=x+.5,cy=y+.5;
   for(const [hx,hy] of HQP){if(Math.hypot(cx-hx-1.5,cy-hy-1.5)<6.5)return true}
   for(const d of DEPOTS){if(Math.hypot(cx-d[0],cy-d[1])<2.3)return true}
@@ -291,63 +292,81 @@ function clearZone(x,y){const cx=x+.5,cy=y+.5;
 
 function genMap(seed){
   const r=mulberry32(seed);
-  Hm=new Float32Array(N*N);Gm=new Uint8Array(N*N);Fm=new Uint8Array(N*N);OB=new Int16Array(N*N).fill(-1);
+  Hm=new Float32Array(NN);Gm=new Uint8Array(NN);Fm=new Uint8Array(NN);OB=new Int16Array(NN).fill(-1);
   // relevo
-  const hills=[{x:30*SC,y:31*SC,rad:5,h:2.1},{x:13*SC,y:38*SC,rad:4.5,h:1.8}];
-  for(let k=0;k<Math.round(6*SC*SC);k++)hills.push({x:6+r()*(N-12),y:6+r()*(N-12),rad:3+r()*5,h:1.2+r()*1.9});
-  const raw=(x,y)=>{let h=0;for(const q of hills){const d2=(x-q.x)**2+(y-q.y)**2;h+=q.h*Math.exp(-d2/(q.rad*q.rad))}return h};
-  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
-    const cx=x+.5,cy=y+.5;let h=(raw(cx,cy)+raw(N-cx,N-cy))/2;
+  const hills=[{x:NX*.8,y:NY*.25,rad:6,h:2.1},{x:NX*.8,y:NY*.75,rad:5.5,h:1.9},{x:NX*.6,y:NY*.12,rad:5,h:1.8}];
+  for(let k=0;k<Math.round(6*SC*SC);k++)hills.push({x:6+r()*(NX-12),y:6+r()*(NY-12),rad:3+r()*5,h:1.2+r()*1.9});
+  const raw=(x,y)=>{let h=0;for(const q of hills){const dx=x-q.x,dy=y-q.y,c=q.rad*3;if(dx>c||dx<-c||dy>c||dy<-c)continue;h+=q.h*Math.exp(-(dx*dx+dy*dy)/(q.rad*q.rad))}return h};
+  for(let y=0;y<NY;y++)for(let x=0;x<NX;x++){
+    const cx=x+.5,cy=y+.5;let h=(raw(cx,cy)+raw(NX-cx,NY-cy))/2;
     let dh=1e9;for(const [hx,hy] of HQP)dh=Math.min(dh,Math.hypot(cx-hx-1.5,cy-hy-1.5));
     h*=smooth(5,10,dh);
     let dd=1e9;for(const d of DEPOTS)dd=Math.min(dd,Math.hypot(cx-d[0],cy-d[1]));
     h*=.45+.55*smooth(1.5,4.5,dd);
     Hm[idx(x,y)]=Math.min(3.2,h);
   }
+  // rios: um de cada lado do mapa, de ponta a ponta; só dá para atravessar pelas pontes
+  const rph=r()*6,rph2=r()*6,RW=3.6;const rivX=y=>NX*.37+4.5*Math.sin(y*.05+rph)+2*Math.sin(y*.14+rph2);
+  for(let y=0;y<NY;y++){const xc=rivX(y+.5);for(let x=Math.floor(xc-RW/2-4);x<=xc+RW/2+4;x++){if(!inb(x,y))continue;const d=Math.abs(x+.5-xc),i=idx(x,y),j=idx(NX-1-x,NY-1-y);
+    if(d<RW/2){Fm[i]=Fm[j]=10;Hm[i]=Hm[j]=-.5}else{const k=smooth(RW/2,RW/2+4,d);Hm[i]=Hm[j]=Hm[i]*k-.08*(1-k)}}}
   // estradas
-  const D=n=>{const d=DEPOTS.find(q=>q[2]===n);return [d[0],d[1]]};const HQc=[N-7.5,N-7.5];
-  const roads=[[HQc,D('Fazenda')],[D('Fazenda'),D('Moinho')],[D('Fazenda'),D('Celeiro')],[D('Fazenda'),D('Ponte')],[D('Ponte'),[MID,MID]],[D('Moinho'),[MID,MID]],[D('Celeiro'),[MID,MID]],
-    [D('Celeiro'),D('Mina')],[D('Mina'),D('Olaria')],[D('Moinho'),D('Serraria')],[D('Moinho'),D('Represa')],[D('Fazenda'),D('Cemitério')],[D('Cemitério'),D('Mina')],[D('Represa'),D('Serraria')],[HQc,[N-7.5,N*.55]],[HQc,[N*.55,N-7.5]]];
+  const D=n=>{const d=DEPOTS.find(q=>q[2]===n);return [d[0],d[1]]};const HQc=[NX-7.5,NY/2+.5],C0=[NX/2,NY/2],F=(u,v)=>[u*NX,v*NY];
+  const roads=[[HQc,D('Fazenda')],[D('Fazenda'),D('Ponte')],[D('Ponte'),C0],[HQc,D('Represa')],[HQc,D('Cemitério')],[D('Fazenda'),D('Represa')],[D('Fazenda'),D('Cemitério')],
+    [D('Represa'),D('Olaria')],[D('Cemitério'),D('Mina')],[D('Represa'),D('Granja')],[D('Cemitério'),D('Pomar')],[D('Granja'),D('Olaria')],[D('Pomar'),D('Mina')],
+    [D('Olaria'),D('Ponte Norte')],[D('Mina'),D('Moinho')],[D('Ponte Norte'),F(.5,.32)],[D('Moinho'),F(.5,.68)],[D('Ponte Norte'),D('Ponte')],[D('Moinho'),D('Ponte')]];
   G.roadPts=[];const BI=BIOMES[G.biome];
   for(const [a,b] of roads){const L=Math.hypot(b[0]-a[0],b[1]-a[1]);const nx=-(b[1]-a[1])/L,ny=(b[0]-a[0])/L;const ph=r()*6,amp=.8+r()*1.2;const pts=[];
     for(let t=0;t<=1;t+=.2/L){const w=Math.sin(t*Math.PI)*Math.sin(t*Math.PI*2+ph)*amp;const fx=a[0]+(b[0]-a[0])*t+nx*w,fy=a[1]+(b[1]-a[1])*t+ny*w;const x=fx|0,y=fy|0;
       if(Math.floor(t*L/.2*.2*2)%1===0&&(!pts.length||Math.hypot(fx-pts[pts.length-1][0],fy-pts[pts.length-1][1])>.45))pts.push([fx,fy]);
       if(inb(x,y))mirrorSet(Gm,x,y,1)}
-    G.roadPts.push(pts,pts.map(p=>[N-p[0],N-p[1]]))}
+    G.roadPts.push(pts,pts.map(p=>[NX-p[0],NY-p[1]]))}
+  // pontes: onde a estrada cruza o rio (2 quadrados de largura)
+  for(let i=0;i<NN;i++)if(Fm[i]===10&&Gm[i]===1)Fm[i]=11;
+  for(let i=0;i<NN;i++)if(Fm[i]===11){const x=i%NX,y=(i/NX)|0;for(const yy of [y-1,y+1])if(inb(x,yy)&&Fm[idx(x,yy)]===10){Fm[idx(x,yy)]=12;Gm[idx(x,yy)]=1}}
+  for(let i=0;i<NN;i++)if(Fm[i]===11||Fm[i]===12){Fm[i]=11;Gm[i]=1;Hm[i]=.02}
   // campos cultivados com muretas
   const fields=[];
-  for(let k=0;k<Math.round((G.biome==='deserto'?4:9)*SC*SC);k++){const w=3+(r()*4|0),h=2+(r()*3|0),x0=2+(r()*(N-8)|0),y0=2+(r()*(N-8)|0);if(!isHalf(x0+w,y0+h))continue;fields.push([x0,y0,w,h]);
-    for(let y=y0;y<y0+h;y++)for(let x=x0;x<x0+w;x++)if(Gm[idx(x,y)]!==1&&!clearZone(x,y))mirrorSet(Gm,x,y,2)}
+  for(let k=0;k<Math.round((G.biome==='deserto'?4:9)*SC*SC);k++){const w=3+(r()*4|0),h=2+(r()*3|0),x0=2+(r()*(NX-8)|0),y0=2+(r()*(NY-8)|0);if(!isHalf(x0+w,y0+h))continue;fields.push([x0,y0,w,h]);
+    for(let y=y0;y<y0+h;y++)for(let x=x0;x<x0+w;x++)if(Gm[idx(x,y)]!==1&&Fm[idx(x,y)]<10&&!clearZone(x,y))mirrorSet(Gm,x,y,2)}
   const noise=makeNoise(r);
-  for(let y=0;y<N;y++)for(let x=0;x<N;x++){if(!isHalf(x,y))continue;const i=idx(x,y);
-    if(Gm[i]===1||clearZone(x,y))continue;const n=noise(x/4.6,y/4.6);
+  for(let y=0;y<NY;y++)for(let x=0;x<NX;x++){if(!isHalf(x,y))continue;const i=idx(x,y);
+    if(Gm[i]===1||Fm[i]>=10||clearZone(x,y))continue;const n=noise(x/4.6,y/4.6);
     if(Gm[i]!==2&&(n>BI.treeN||r()<BI.treeR))mirrorSet(Fm,x,y,1)}
   for(const [x0,y0,w,h] of fields){
     for(let x=x0-1;x<=x0+w;x++)for(let y=y0-1;y<=y0+h;y++){if(x>=x0&&x<x0+w&&y>=y0&&y<y0+h)continue;if(!inb(x,y)||!isHalf(x,y))continue;
       const i=idx(x,y);if(Fm[i]||Gm[i]===1||clearZone(x,y))continue;if(r()<.55)mirrorSet(Fm,x,y,2)}}
-  for(let k=0;k<Math.round(6*SC*SC);k++){const horiz=r()<.5,len=3+(r()*6|0);let x=3+(r()*(N-8)|0),y=3+(r()*(N-8)|0);
+  for(let k=0;k<Math.round(6*SC*SC);k++){const horiz=r()<.5,len=3+(r()*6|0);let x=3+(r()*(NX-8)|0),y=3+(r()*(NY-8)|0);
     for(let s=0;s<len;s++){const xx=horiz?x+s:x,yy=horiz?y:y+s;if(!inb(xx,yy)||!isHalf(xx,yy))break;const i=idx(xx,yy);if(Fm[i]||Gm[i]===1||clearZone(xx,yy))continue;mirrorSet(Fm,xx,yy,2)}}
   // casas: vila central e povoados
   G.objs=[];
   const tryHouse=(x0,y0)=>{const t=[],m=[];for(let y=y0;y<y0+2;y++)for(let x=x0;x<x0+2;x++){if(!inb(x,y))return false;const i=idx(x,y);
-      if(Gm[i]===1||Fm[i]===3||clearZone(x,y))return false;t.push(i);m.push(idx(N-1-x,N-1-y))}
-    for(const i of m){if(t.includes(i))return false;if(Gm[i]===1||Fm[i]===3)return false}
+      if(Gm[i]===1||Fm[i]===3||Fm[i]>=10||clearZone(x,y))return false;t.push(i);m.push(idx(NX-1-x,NY-1-y))}
+    for(const i of m){if(t.includes(i))return false;if(Gm[i]===1||Fm[i]===3||Fm[i]>=10)return false}
     if(!isHalf(x0,y0))return false;
     for(const i of t.concat(m))Fm[i]=0;
-    mkObj('house',-1,x0,y0,2,2,r());mkObj('house',-1,N-2-x0,N-2-y0,2,2,r());return true};
-  const spots=[[MID,MID,20,2.6,11]];for(const d of DEPOTS.slice(1)){if(isHalf(d[0]|0,d[1]|0))spots.push([d[0],d[1],d[2]==='Fazenda'?2:4,2.5,5.5])}
-  for(let k=0;k<Math.round(3*SC);k++){const x=10+r()*(N-20),y=10+r()*(N-20);if(isHalf(x|0,y|0))spots.push([x,y,3,1,4])}
+    mkObj('house',-1,x0,y0,2,2,r());mkObj('house',-1,NX-2-x0,NY-2-y0,2,2,r());return true};
+  // cidade: ruas em grade a cada 8 quadrados, quarteirões com casas na borda e quintal no meio
+  const city=(cx,cy,rx,ry,dens)=>{const g=8,ox=Math.floor(cx),oy=Math.floor(cy);
+    for(let y=Math.floor(cy-ry);y<=cy+ry;y++)for(let x=Math.floor(cx-rx);x<=cx+rx;x++){if(!inb(x,y)||!isHalf(x,y))continue;if(((x+.5-cx)/rx)**2+((y+.5-cy)/ry)**2>1)continue;const i=idx(x,y);if(Fm[i]>=10)continue;
+      if(Fm[i]!==3)mirrorSet(Fm,x,y,0);if(Gm[i]===2)mirrorSet(Gm,x,y,0);const sx=((x-ox)%g+g)%g,sy=((y-oy)%g+g)%g;if(sx===0||sy===0)mirrorSet(Gm,x,y,1)}
+    for(let by=Math.floor((cy-ry-oy)/g)-1;by<=Math.ceil((cy+ry-oy)/g);by++)for(let bx=Math.floor((cx-rx-ox)/g)-1;bx<=Math.ceil((cx+rx-ox)/g);bx++){
+      const x0=ox+bx*g,y0=oy+by*g;if(((x0+4-cx)/rx)**2+((y0+4-cy)/ry)**2>.92)continue;
+      for(const [a,b] of [[1,1],[3,1],[5,1],[1,3],[5,3],[1,5],[3,5],[5,5]])if(r()<dens)tryHouse(x0+a,y0+b)}};
+  city(NX/2-1,NY/2,24,32,.5);
+  {const fz=D('Fazenda');city(NX-fz[0],NY-fz[1],11,14,.5)}
+  const spots=[];for(const d of DEPOTS.slice(1)){if(isHalf(d[0]|0,d[1]|0)&&d[2]!=='Estação')spots.push([d[0],d[1],3,2.5,5.5])}
+  for(let k=0;k<Math.round(2*SC);k++){const x=10+r()*(NX-20),y=10+r()*(NY-20);if(isHalf(x|0,y|0))spots.push([x,y,3,1,4])}
   for(const [cx,cy,want,rmin,rmax] of spots){let got=0;for(let k=0;k<80&&got<want;k++){const a=r()*6.283,d=rmin+r()*(rmax-rmin);
-      if(tryHouse(Math.round(cx+Math.cos(a)*d-1),Math.round(cy+Math.sin(a)*d-1)))got+=(cx===MID?2:1)}}
+      if(tryHouse(Math.round(cx+Math.cos(a)*d-1),Math.round(cy+Math.sin(a)*d-1)))got++}}
   if(BI.compound){for(const o of G.objs){if(o.kind!=='house'||!isHalf(o.x0,o.y0))continue;
       for(let y=o.y0-1;y<=o.y0+o.h;y++)for(let x=o.x0-1;x<=o.x0+o.w;x++){if(x>=o.x0&&x<o.x0+o.w&&y>=o.y0&&y<o.y0+o.h)continue;if(!inb(x,y)||!isHalf(x,y))continue;const i=idx(x,y);
         if(Fm[i]||Gm[i]===1||clearZone(x,y))continue;if(r()<.7)mirrorSet(Fm,x,y,2)}}}
-  if(BI.trenches){const lines=[];for(const d of DEPOTS){if(d[0]===MID||!isHalf(d[0]|0,d[1]|0))continue;lines.push([d[0],d[1],3.3,3.6])}lines.push([7.5,7.5,8,4.5]);
-    for(const [x0,y0,off,len] of lines){let dx=MID-x0,dy=MID-y0;const l=Math.hypot(dx,dy);dx/=l;dy/=l;const cx=x0+dx*off,cy=y0+dy*off;let lx=-1,ly=-1;
+  if(BI.trenches){const lines=[];for(const d of DEPOTS){if(d[2]==='Vila'||!isHalf(d[0]|0,d[1]|0))continue;lines.push([d[0],d[1],3.3,3.6])}lines.push([7.5,NY/2+.5,8,4.5]);
+    for(const [x0,y0,off,len] of lines){let dx=MIDX-x0,dy=MIDY-y0;const l=Math.hypot(dx,dy);dx/=l;dy/=l;const cx=x0+dx*off,cy=y0+dy*off;let lx=-1,ly=-1;
       for(let t=-len;t<=len;t+=.25){const z=0;const x=(cx-dy*t+dx*z)|0,y=(cy+dx*t+dy*z)|0;if(x===lx&&y===ly)continue;
-        const put=(xx,yy)=>{if(!inb(xx,yy)||!isHalf(xx,yy))return;const i=idx(xx,yy);if(Gm[i]===1||Fm[i]===3||Fm[i]===7||clearZone(xx,yy))return;mirrorSet(Fm,xx,yy,5)};
+        const put=(xx,yy)=>{if(!inb(xx,yy)||!isHalf(xx,yy))return;const i=idx(xx,yy);if(Gm[i]===1||Fm[i]===3||Fm[i]===7||Fm[i]>=10||clearZone(xx,yy))return;mirrorSet(Fm,xx,yy,5)};
         if(lx>=0&&x!==lx&&y!==ly)put(x,ly);put(x,y);lx=x;ly=y}}}
-  if(BI.hedge){for(let k=0;k<Math.round(2*SC*SC);k++){const a=r()*6.283,cx=9+r()*(N*.6),cy=9+r()*(N*.6),dx=Math.cos(a),dy=Math.sin(a);
+  if(BI.hedge){for(let k=0;k<Math.round(2*SC*SC);k++){const a=r()*6.283,cx=9+r()*(NX*.45),cy=9+r()*(NY-18),dx=Math.cos(a),dy=Math.sin(a);
       for(let s=0;s<4;s++){const x=(cx+dx*s*1.7)|0,y=(cy+dy*s*1.7)|0;if(!inb(x,y)||!isHalf(x,y))continue;const i=idx(x,y);if(Fm[i]||Gm[i]===1||clearZone(x,y))continue;mirrorSet(Fm,x,y,8)}}}
 }
 
@@ -360,24 +379,24 @@ function mkObj(kind,team,x0,y0,w,h,v){
 // ================================================================ textura do chão
 function paintGround(){for(const _ of paintGroundGen());}
 function* paintGroundGen(){
-  const S=N*TEX;if(!gcv)gcv=document.createElement('canvas');gcv.width=gcv.height=S;gctx=gcv.getContext('2d',{willReadFrequently:true});
-  const img=gctx.createImageData(S,S),d=img.data;const BI=BIOMES[G.biome],gp=BI.gp,des=G.biome==='deserto',win=G.biome==='inverno';
+  const SX=NX*TEX,SY=NY*TEX;if(!gcv)gcv=document.createElement('canvas');gcv.width=SX;gcv.height=SY;gctx=gcv.getContext('2d',{willReadFrequently:true});
+  const img=gctx.createImageData(SX,SY),d=img.data;const BI=BIOMES[G.biome],gp=BI.gp,des=G.biome==='deserto',win=G.biome==='inverno';
   const r=mulberry32((G.seed|0)^0x5bd1e995);const na=makeNoise(r),nb=makeNoise(r),nc=makeNoise(r);
-  const M=N*2+3,NG=new Float32Array(M*M),NF=new Float32Array(M*M);
-  for(let j=0;j<M;j++)for(let i=0;i<M;i++){const x=i/2,y=j/2;NG[j*M+i]=na(x/6.5,y/6.5)*.62+nb(x/2.1,y/2.1)*.38;NF[j*M+i]=nc(x/1.05,y/1.05)}
-  const sh=new Float32Array(N*N),tm=new Float32Array(N*N),ym=new Float32Array(N*N),ao=new Float32Array(N*N),rd=new Float32Array(N*N),fl=new Float32Array(N*N),ft=new Uint8Array(N*N),bd=new Float32Array(N*N);
-  const hv=(x,y)=>Hm[idx(clamp(x,0,N-1),clamp(y,0,N-1))];
-  const bases=[[40.5,40.5],[7.5,7.5]];
-  for(let y=0;y<N;y++)for(let x=0;x<N;x++){const i=idx(x,y);
+  const M=NX*2+3,MY=NY*2+3,NG=new Float32Array(M*MY),NF=new Float32Array(M*MY);
+  for(let j=0;j<MY;j++)for(let i=0;i<M;i++){const x=i/2,y=j/2;NG[j*M+i]=na(x/6.5,y/6.5)*.62+nb(x/2.1,y/2.1)*.38;NF[j*M+i]=nc(x/1.05,y/1.05)}
+  const sh=new Float32Array(NN),tm=new Float32Array(NN),ym=new Float32Array(NN),ao=new Float32Array(NN),rd=new Float32Array(NN),fl=new Float32Array(NN),ft=new Uint8Array(NN),bd=new Float32Array(NN),wt=new Float32Array(NN);
+  const hv=(x,y)=>Hm[idx(clamp(x,0,NX-1),clamp(y,0,NY-1))];
+  const bases=HQP.map(([a,b])=>[a+1.5,b+1.5]);
+  for(let y=0;y<NY;y++)for(let x=0;x<NX;x++){const i=idx(x,y);wt[i]=Fm[i]===10||Fm[i]===11?1:0;
     sh[i]=clamp(1+((hv(x+1,y)-hv(x-1,y))+(hv(x,y+1)-hv(x,y-1)))*.26,.68,1.28);
     tm[i]=Fm[i]===1?1:0;ao[i]=Fm[i]===3?1:Fm[i]===2?.45:0;rd[i]=Gm[i]===1?1:0;fl[i]=Gm[i]===2?1:0;
     ft[i]=1+((hsh((x>>2)+(y>>2)*13,91)*3)|0);
     let near=0;for(let b=-1;b<=1;b++)for(let a=-1;a<=1;a++){const xx=x+a,yy=y+b;if(inb(xx,yy)&&Fm[idx(xx,yy)]===3)near=1}ym[i]=near;
     let m=1e9;for(const [bx,by] of bases)m=Math.min(m,Math.hypot(x+.5-bx,y+.5-by));bd[i]=m<4.3?1:0;
     for(const dp of DEPOTS)if(Math.hypot(x+.5-dp[0],y+.5-dp[1])<1.6)bd[i]=Math.max(bd[i],.8)}
-  const ci=(x,y)=>idx(clamp(x,0,N-1),clamp(y,0,N-1));
-  for(let py=0;py<S;py++){if(py&&py%192===0)yield 'Pintando o terreno '+Math.round(py/S*100)+'%';const fy=py/TEX-.5,y0=Math.floor(fy),ty=fy-y0;const gy=py/TEX*2,gj=gy|0,gfy=gy-gj;
-    for(let px=0;px<S;px++){const fx=px/TEX-.5,x0=Math.floor(fx),tx=fx-x0;
+  const ci=(x,y)=>idx(clamp(x,0,NX-1),clamp(y,0,NY-1));const WC={inverno:[92,112,120],deserto:[58,94,94],outono:[48,70,68]}[G.biome]||[56,80,78];
+  for(let py=0;py<SY;py++){if(py&&py%160===0)yield 'Pintando o terreno '+Math.round(py/SY*100)+'%';const fy=py/TEX-.5,y0=Math.floor(fy),ty=fy-y0;const gy=py/TEX*2,gj=gy|0,gfy=gy-gj;
+    for(let px=0;px<SX;px++){const fx=px/TEX-.5,x0=Math.floor(fx),tx=fx-x0;
       const a=ci(x0,y0),b=ci(x0+1,y0),c=ci(x0,y0+1),e=ci(x0+1,y0+1);
       const w00=(1-tx)*(1-ty),w10=tx*(1-ty),w01=(1-tx)*ty,w11=tx*ty;
       const gx=px/TEX*2,gi=gx|0,gfx=gx-gi,o0=gj*M+gi;
@@ -409,39 +428,43 @@ function* paintGroundGen(){
       // sombra de muros e casas
       const sa=(ao[a]*w00+ao[b]*w10+ao[c]*w01+ao[e]*w11);const kk=(1-sa*.14);
       R1*=kk;G1*=kk;B1*=kk;
-      const o=(py*S+px)*4;d[o]=R1;d[o+1]=G1;d[o+2]=B1;d[o+3]=255}}
+      // rio: margem lamacenta e água
+      const wv=(wt[a]*w00+wt[b]*w10+wt[c]*w01+wt[e]*w11)+(n2-.5)*.18;
+      if(wv>.22){if(wv<.42){const k=(wv-.22)*4;R1+=(gp.mud[0]*.8-R1)*Math.min(1,k);G1+=(gp.mud[1]*.8-G1)*Math.min(1,k);B1+=(gp.mud[2]*.8-B1)*Math.min(1,k)}
+        else{const dep=clamp((wv-.42)*2.2,0,1),rip=Math.sin(px*.21+n2*9)*Math.sin(py*.13+n1*7)*7+(fine-.5)*6;R1=WC[0]*(1-dep*.3)+rip;G1=WC[1]*(1-dep*.25)+rip;B1=WC[2]*(1-dep*.15)+rip*1.2}}
+      const o=(py*SX+px)*4;d[o]=R1;d[o+1]=G1;d[o+2]=B1;d[o+3]=255}}
   gctx.putImageData(img,0,0);
   // sulcos de rodas nas estradas
   gctx.strokeStyle=gp.rut;gctx.lineWidth=Math.max(1,2.6*PXS);gctx.lineJoin='round';
   for(const pts of G.roadPts){for(const off of [-.2,.2]){gctx.beginPath();for(let k=0;k<pts.length;k++){const a=pts[Math.max(0,k-1)],b=pts[Math.min(pts.length-1,k+1)];const dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1;
       const x=(pts[k][0]-dy/l*off)*TEX,y=(pts[k][1]+dx/l*off)*TEX;k?gctx.lineTo(x,y):gctx.moveTo(x,y)}gctx.stroke()}}
-  for(let i=0;i<N*N;i++)if(Fm[i]===5)trenchTile(i%N,(i/N)|0);
+  for(let i=0;i<NN;i++)if(Fm[i]===5)trenchTile(i%NX,(i/NX)|0);
   // pedras e arbustos
   const rr=mulberry32((G.seed|0)+77);
-  for(let k=0;k<Math.round(420*SC*SC);k++){const x=rr()*N,y=rr()*N,i=tix(x,y);if(Fm[i]!==0||Gm[i]===1)continue;const px=x*TEX,py=y*TEX;gctx.save();gctx.translate(px,py);gctx.scale(PXS,PXS);gctx.translate(-px,-py);
+  for(let k=0;k<Math.round(420*SC*SC);k++){const x=rr()*NX,y=rr()*NY,i=tix(x,y);if(Fm[i]!==0||Gm[i]===1)continue;const px=x*TEX,py=y*TEX;gctx.save();gctx.translate(px,py);gctx.scale(PXS,PXS);gctx.translate(-px,-py);
     if(rr()<.45||G.biome!=='outono'){const s=1.5+rr()*2.5;gctx.fillStyle='rgba(30,30,24,.35)';gctx.beginPath();gctx.ellipse(px+1,py+1,s*1.2,s*.8,0,0,6.283);gctx.fill();
       gctx.fillStyle=`rgb(${128+rr()*30|0},${124+rr()*26|0},${112+rr()*20|0})`;gctx.beginPath();gctx.ellipse(px,py,s*1.2,s*.8,0,0,6.283);gctx.fill();
       gctx.fillStyle='rgba(255,250,230,.25)';gctx.beginPath();gctx.ellipse(px-s*.3,py-s*.3,s*.5,s*.3,0,0,6.283);gctx.fill()}
     else{const n=3+(rr()*4|0);for(let j=0;j<n;j++){const ox=(rr()-.5)*7,oy=(rr()-.5)*7,s=2+rr()*2.5;gctx.fillStyle=`rgba(${44+rr()*20|0},${62+rr()*22|0},${34+rr()*10|0},.9)`;gctx.beginPath();gctx.arc(px+ox,py+oy,s,0,6.283);gctx.fill()}}gctx.restore()}
-  gctx.strokeStyle='rgba(10,12,8,.85)';gctx.lineWidth=6;gctx.strokeRect(3,3,S-6,S-6);
-  fcv=document.createElement('canvas');fcv.width=fcv.height=N;fctx=fcv.getContext('2d');fimg=fctx.createImageData(N,N);
-  for(let i=0;i<N*N;i++){fimg.data[i*4]=11;fimg.data[i*4+1]=13;fimg.data[i*4+2]=8;fimg.data[i*4+3]=215}
+  gctx.strokeStyle='rgba(10,12,8,.85)';gctx.lineWidth=6;gctx.strokeRect(3,3,SX-6,SY-6);
+  fcv=document.createElement('canvas');fcv.width=NX;fcv.height=NY;fctx=fcv.getContext('2d');fimg=fctx.createImageData(NX,NY);
+  for(let i=0;i<NN;i++){fimg.data[i*4]=11;fimg.data[i*4+1]=13;fimg.data[i*4+2]=8;fimg.data[i*4+3]=215}
   fctx.putImageData(fimg,0,0);
-  if(!mcv)mcv=document.createElement('canvas');mcv.width=mcv.height=S;mctx=mcv.getContext('2d',{willReadFrequently:true});mctx.fillStyle='#fff';mctx.fillRect(0,0,S,S);
-  for(let i=0;i<N*N;i++)if(Fm[i]===5)paintTrenchMask(i%N,(i/N)|0);
+  if(!mcv)mcv=document.createElement('canvas');mcv.width=NX*TEX;mcv.height=NY*TEX;mctx=mcv.getContext('2d',{willReadFrequently:true});mctx.fillStyle='#fff';mctx.fillRect(0,0,NX*TEX,NY*TEX);
+  for(let i=0;i<NN;i++)if(Fm[i]===5)paintTrenchMask(i%NX,(i/NX)|0);
   buildMiniBase();
 }
 const DTB=16;let DG=null,DM=null;
-function markD(x,y,r,mask){G.texDirty=true;const nb=Math.ceil(N/DTB);if(!DG||DG.length!==nb*nb){DG=new Uint8Array(nb*nb);DM=new Uint8Array(nb*nb)}
-  const x0=clamp(Math.floor((x-r)/DTB),0,nb-1),x1=clamp(Math.floor((x+r)/DTB),0,nb-1),y0=clamp(Math.floor((y-r)/DTB),0,nb-1),y1=clamp(Math.floor((y+r)/DTB),0,nb-1);
+function markD(x,y,r,mask){G.texDirty=true;const nb=Math.ceil(NX/DTB),nby=Math.ceil(NY/DTB);if(!DG||DG.length!==nb*nby){DG=new Uint8Array(nb*nby);DM=new Uint8Array(nb*nby)}
+  const x0=clamp(Math.floor((x-r)/DTB),0,nb-1),x1=clamp(Math.floor((x+r)/DTB),0,nb-1),y0=clamp(Math.floor((y-r)/DTB),0,nby-1),y1=clamp(Math.floor((y+r)/DTB),0,nby-1);
   for(let by=y0;by<=y1;by++)for(let bx=x0;bx<=x1;bx++){DG[by*nb+bx]=1;if(mask)DM[by*nb+bx]=1}}
 function flushD(tex,cx,D,maxN){// envia só os blocos de 128px alterados (antes reenviava a textura inteira)
   const r=S3.r,gl=r.getContext(),pr=r.properties.get(tex);if(!D)return 0;
   if(!r.capabilities.isWebGL2||!pr.__webglTexture||pr.__version!==tex.version){if(D.some(v=>v)){tex.needsUpdate=true;D.fill(0)}return 0}
-  const nb=Math.ceil(N/DTB),B=DTB*TEX,S=N*TEX;let n=0;
+  const nb=Math.ceil(NX/DTB),B=DTB*TEX,SX=NX*TEX,S=NY*TEX;let n=0;
   for(let i=0;i<D.length&&n<maxN;i++){if(!D[i])continue;D[i]=0;
     if(n===0){r.state.activeTexture(gl.TEXTURE0);r.state.bindTexture(gl.TEXTURE_2D,pr.__webglTexture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,tex.flipY);gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,tex.premultiplyAlpha);gl.pixelStorei(gl.UNPACK_ALIGNMENT,4);gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,gl.NONE)}
-    const px=(i%nb)*B,py=((i/nb)|0)*B,w=Math.min(B,S-px),h=Math.min(B,S-py);
+    const px=(i%nb)*B,py=((i/nb)|0)*B,w=Math.min(B,SX-px),h=Math.min(B,S-py);
     gl.texSubImage2D(gl.TEXTURE_2D,0,px,tex.flipY?S-py-h:py,gl.RGBA,gl.UNSIGNED_BYTE,cx.getImageData(px,py,w,h));n++}
   if(n&&tex.generateMipmaps&&tex.minFilter!==THREE.LinearFilter&&tex.minFilter!==THREE.NearestFilter)gl.generateMipmap(gl.TEXTURE_2D);
   return n}
@@ -469,24 +492,24 @@ function paintTracks(u){markD(u.x,u.y,1.2);const ca=Math.cos(u.face),sa=Math.sin
   for(const sd of [-1,1]){const x=(u.x-sa*w*sd)*TEX,y=(u.y+ca*w*sd)*TEX;gctx.save();gctx.translate(x,y);gctx.rotate(u.face);gctx.fillRect(-3,-1.6,6,3.2);gctx.restore()}}
 
 // ================================================================ pathfinding
-const PF={g:new Float32Array(N*N),came:new Int32Array(N*N),st:new Uint32Array(N*N),cl:new Uint32Array(N*N),stamp:0};
-const CI0=[1,1.7,2,-1,1.4,1.2,2,-1,1.3,3.6],CI1=[1,3,2.6,-1,1.7,2.2,2.6,-1,-1,1.4],CI2=[1,-1,-1,-1,1.8,2.4,-1,-1,-1,-1];
+const PF={g:new Float32Array(NN),came:new Int32Array(NN),st:new Uint32Array(NN),cl:new Uint32Array(NN),stamp:0};
+const CI0=[1,1.7,2,-1,1.4,1.2,2,-1,1.3,3.6,-1,1],CI1=[1,3,2.6,-1,1.7,2.2,2.6,-1,-1,1.4,-1,1],CI2=[1,-1,-1,-1,1.8,2.4,-1,-1,-1,-1,-1,1];
 function tcost(i,kind){const f=Fm[i];let c=kind===0?CI0[f]:kind===1?CI1[f]:CI2[f];if(c<0)return -1;if(Gm[i]===1)c*=kind?.6:.75;return c}
-function nearestPass(i,kind){const x0=i%N,y0=(i/N)|0;for(let r=1;r<8;r++)for(let y=y0-r;y<=y0+r;y++)for(let x=x0-r;x<=x0+r;x++){if(!inb(x,y))continue;if(Math.max(Math.abs(x-x0),Math.abs(y-y0))!==r)continue;const j=idx(x,y);if(tcost(j,kind)>=0)return j}return -1}
+function nearestPass(i,kind){const x0=i%NX,y0=(i/NX)|0;for(let r=1;r<8;r++)for(let y=y0-r;y<=y0+r;y++)for(let x=x0-r;x<=x0+r;x++){if(!inb(x,y))continue;if(Math.max(Math.abs(x-x0),Math.abs(y-y0))!==r)continue;const j=idx(x,y);if(tcost(j,kind)>=0)return j}return -1}
 function walkable(ax,ay,bx,by,kind){const d=Math.hypot(bx-ax,by-ay),n=Math.ceil(d*4);for(let k=1;k<n;k++){const t=k/n;const x=ax+(bx-ax)*t,y=ay+(by-ay)*t;const c=tcost(tix(x,y),kind);if(c<0||c>1.9)return false}return true}
 function findPath(sx,sy,tx,ty,kind){
   let s=tix(sx,sy),t=tix(tx,ty);
-  if(tcost(t,kind)<0){t=nearestPass(t,kind);if(t<0)return null;tx=t%N+.5;ty=((t/N)|0)+.5}
+  if(tcost(t,kind)<0){t=nearestPass(t,kind);if(t<0)return null;tx=t%NX+.5;ty=((t/NX)|0)+.5}
   if(tcost(s,kind)<0){const s2=nearestPass(s,kind);if(s2>=0)s=s2}
   if(s===t)return [[tx,ty]];
   const st=++PF.stamp,g=PF.g,came=PF.came;const heap=[];const fv=[];
   const push=(i,f)=>{heap.push(i);fv.push(f);let k=heap.length-1;while(k>0){const p=(k-1)>>1;if(fv[p]<=fv[k])break;[heap[p],heap[k]]=[heap[k],heap[p]];[fv[p],fv[k]]=[fv[k],fv[p]];k=p}};
   const pop=()=>{const top=heap[0];const li=heap.pop(),lf=fv.pop();if(heap.length){heap[0]=li;fv[0]=lf;let k=0;for(;;){const l=2*k+1,r=l+1;let m=k;if(l<heap.length&&fv[l]<fv[m])m=l;if(r<heap.length&&fv[r]<fv[m])m=r;if(m===k)break;[heap[m],heap[k]]=[heap[k],heap[m]];[fv[m],fv[k]]=[fv[k],fv[m]];k=m}}return top};
-  const txi=t%N,tyi=(t/N)|0,hmin=kind?.6:.75;
-  const hf=i=>{const dx=Math.abs(i%N-txi),dy=Math.abs(((i/N)|0)-tyi);return (Math.max(dx,dy)+.414*Math.min(dx,dy))*hmin*1.25};
+  const txi=t%NX,tyi=(t/NX)|0,hmin=kind?.6:.75;
+  const hf=i=>{const dx=Math.abs(i%NX-txi),dy=Math.abs(((i/NX)|0)-tyi);return (Math.max(dx,dy)+.414*Math.min(dx,dy))*hmin*1.25};
   PF.st[s]=st;g[s]=0;came[s]=-1;push(s,hf(s));let it=0,found=false;
   while(heap.length&&it++<90000){const c=pop();if(PF.cl[c]===st)continue;PF.cl[c]=st;if(c===t){found=true;break}
-    const cx=c%N,cy=(c/N)|0;
+    const cx=c%NX,cy=(c/NX)|0;
     for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const nx=cx+dx,ny=cy+dy;if(!inb(nx,ny))continue;const n=idx(nx,ny);
       if(PF.cl[n]===st)continue;const tc=tcost(n,kind);if(tc<0)continue;
       if(dx&&dy&&(tcost(idx(cx+dx,cy),kind)<0||tcost(idx(cx,cy+dy),kind)<0))continue;
@@ -494,7 +517,7 @@ function findPath(sx,sy,tx,ty,kind){
       if(PF.st[n]!==st||ng<g[n]){PF.st[n]=st;g[n]=ng;came[n]=c;push(n,ng+hf(n))}}}
   if(!found)return null;
   const tiles=[];for(let c=t;c!==-1;c=came[c])tiles.push(c);tiles.reverse();
-  const pts=tiles.map(i=>[i%N+.5,((i/N)|0)+.5]);pts[0]=[sx,sy];pts[pts.length-1]=[tx,ty];
+  const pts=tiles.map(i=>[i%NX+.5,((i/NX)|0)+.5]);pts[0]=[sx,sy];pts[pts.length-1]=[tx,ty];
   const out=[];let a=0;while(a<pts.length-1){let b=pts.length-1;while(b>a+1&&!walkable(pts[a][0],pts[a][1],pts[b][0],pts[b][1],kind))b--;out.push(pts[b]);a=b}
   return out}
 
@@ -513,7 +536,7 @@ function los(a,b){
 function castFrom(v,x,y,eye,r,skip){
   v[tix(x,y)]=1;const n=Math.ceil(r*7);
   for(let k=0;k<n;k++){const a=k/n*6.2832,dx=Math.cos(a),dy=Math.sin(a);let mx=-1e9,dens=0;
-    for(let d=.5;d<=r;d+=.5){const px=x+dx*d,py=y+dy*d;if(px<0||py<0||px>=N||py>=N)break;const i=idx(px|0,py|0);const gh=Hm[i];
+    for(let d=.5;d<=r;d+=.5){const px=x+dx*d,py=y+dy*d;if(px<0||py<0||px>=NX||py>=NY)break;const i=idx(px|0,py|0);const gh=Hm[i];
       if((gh+.5-eye)/d>=mx-.002)v[i]=1;const s2=(gh-eye)/d;if(s2>mx)mx=s2;
       const f=Fm[i];if(f===3||f===7){v[i]=1;if(eye<gh+2.2&&OB[i]!==skip)break}
       if(f===1&&eye-gh<2){dens+=.17;if(dens>=1)break}}}}
@@ -525,7 +548,7 @@ function computeVis(team){
 }
 function updateFog(){
   const v=G.vis[0],e=G.expl,d=fimg.data;
-  for(let i=0;i<N*N;i++){if(v[i])e[i]=1;d[i*4+3]=v[i]?0:e[i]?115:218}
+  for(let i=0;i<NN;i++){if(v[i])e[i]=1;d[i*4+3]=v[i]?0:e[i]?115:218}
   fctx.putImageData(fimg,0,0);fog3D();
   for(const o of G.objs){if(o.seen||!o.alive)continue;for(let y=o.y0;y<o.y0+o.h&&!o.seen;y++)for(let x=o.x0;x<o.x0+o.w;x++)if(v[idx(x,y)]){o.seen=true;break}}
 }
@@ -550,7 +573,7 @@ function findCover(tx,ty,rad,dx,dy,res){
   for(let y=y0-r;y<=y0+r;y++)for(let x=x0-r;x<=x0+r;x++){if(!inb(x,y))continue;const i=idx(x,y);if(res.has(i)||tcost(i,0)<0)continue;
     const d=Math.hypot(x+.5-tx,y+.5-ty);if(d>rad)continue;const s=coverScore(x,y,dx,dy)-d/rad*.45+Hm[i]*.02+R()*.03;if(s>best){best=s;bi=i}}
   if(bi<0)return [tx,ty];res.add(bi);
-  const bx=bi%N,by=(bi/N)|0;const off=(Fm[bi]===5||Fm[bi]===1)?0:.2;
+  const bx=bi%NX,by=(bi/NX)|0;const off=(Fm[bi]===5||Fm[bi]===1)?0:.2;
   return [bx+.5+dx*off,by+.5+dy*off]}
 function findFree(tx,ty,res,kind){
   const x0=tx|0,y0=ty|0;
@@ -567,19 +590,19 @@ function mkUnit(type,team,x,y){
     moving:false,anim:R()*10,patient:null,mT:0,medicAuto:false,repT:0,dead:false,dive:null,holder:-1,lastTile:-1,inHouse:-1,enterH:-1,spot:-1};
   G.units.push(u);return u}
 function setDest(u,x,y){
-  x=clamp(x,.3,N-.3);y=clamp(y,.3,N-.3);u.dest=[x,y];u.destTile=tix(x,y);u.dig=false;
+  x=clamp(x,.3,NX-.3);y=clamp(y,.3,NY-.3);u.dest=[x,y];u.destTile=tix(x,y);u.dig=false;
   if(u.cls==='air'){u.path=[[x,y]];u.pi=0;return}
   u.path=null;u.pi=0;if(!u.pq){u.pq=true;G.pathQ.push(u)}}
 function procPaths(){let n=0;while(G.pathQ.length&&n<12){const u=G.pathQ.shift();if(u.dead||!u.pq)continue;u.pq=false;if(!u.dest)continue;
   const p=findPath(u.x,u.y,u.dest[0],u.dest[1],UT[u.type].kind||0);u.path=p&&p.length?p:null;u.pi=0;n++}}
-const GC=4,GNC=Math.ceil(N/GC),GRID=Array.from({length:GNC*GNC},()=>[]);
-function buildGrid(){for(const c of GRID)c.length=0;for(const u of G.units){if(u.dead)continue;GRID[clamp((u.y/GC)|0,0,GNC-1)*GNC+clamp((u.x/GC)|0,0,GNC-1)].push(u)}}
-function forNear(x,y,r,f){const x0=clamp(((x-r)/GC)|0,0,GNC-1),x1=clamp(((x+r)/GC)|0,0,GNC-1),y0=clamp(((y-r)/GC)|0,0,GNC-1),y1=clamp(((y+r)/GC)|0,0,GNC-1);
+const GC=4,GNC=Math.ceil(NX/GC),GNY=Math.ceil(NY/GC),GRID=Array.from({length:GNC*GNY},()=>[]);
+function buildGrid(){for(const c of GRID)c.length=0;for(const u of G.units){if(u.dead)continue;GRID[clamp((u.y/GC)|0,0,GNY-1)*GNC+clamp((u.x/GC)|0,0,GNC-1)].push(u)}}
+function forNear(x,y,r,f){const x0=clamp(((x-r)/GC)|0,0,GNC-1),x1=clamp(((x+r)/GC)|0,0,GNC-1),y0=clamp(((y-r)/GC)|0,0,GNY-1),y1=clamp(((y+r)/GC)|0,0,GNY-1);
   for(let cy=y0;cy<=y1;cy++)for(let cx=x0;cx<=x1;cx++){const c=GRID[cy*GNC+cx];for(let k=0;k<c.length;k++)f(c[k])}}
 function nearestEnemy(team,x,y,r){let b=null,bd=r;forNear(x,y,r,e=>{if(e.team===team||e.dead||e.wounded)return;const d=Math.hypot(e.x-x,e.y-y);if(d<bd&&G.vis[team][tix(e.x,e.y)]){bd=d;b=e}});return b}
 function orderMove(us,tx,ty,mode){
   us=us.filter(u=>!u.dead&&!u.wounded);if(!us.length)return;
-  tx=clamp(tx,.5,N-.5);ty=clamp(ty,.5,N-.5);const team=us[0].team;
+  tx=clamp(tx,.5,NX-.5);ty=clamp(ty,.5,NY-.5);const team=us[0].team;
   let cx=0,cy=0;for(const u of us){cx+=u.x;cy+=u.y}cx/=us.length;cy/=us.length;
   let dx=tx-cx,dy=ty-cy,dl=Math.hypot(dx,dy);if(dl<.5){dx=team?1:-1;dy=dx;dl=1.414}dx/=dl;dy/=dl;
   const th=nearestEnemy(team,tx,ty,14);if(th){const ex=th.x-tx,ey=th.y-ty,el=Math.hypot(ex,ey)||1;dx=ex/el;dy=ey/el}
@@ -686,7 +709,7 @@ function moveAlong(u,dt){
   else{u.x+=dx/d*sp;u.y+=dy/d*sp}
   if(u.cls==='veh'){u.trk=(u.trk||0)+Math.min(d,sp);if(u.trk>.12){u.trk=0;paintTracks(u)}}
   if(u.type==='tank'){const i=tix(u.x,u.y);if(i!==u.lastTile){u.lastTile=i;const f=Fm[i];
-      if(f===1){Fm[i]=0;paintFallen(i%N,(i/N)|0)}else if(f===2||f===6){Fm[i]=4;paintRubble(i%N,(i/N)|0)}else if(f===9)Fm[i]=0}}}
+      if(f===1){Fm[i]=0;paintFallen(i%NX,(i/NX)|0)}else if(f===2||f===6){Fm[i]=4;paintRubble(i%NX,(i/NX)|0)}else if(f===9)Fm[i]=0}}}
 
 function updUnit(u,dt){
   const T=UT[u.type];u.flash=Math.max(0,u.flash-dt);u.anim+=dt;
@@ -695,20 +718,20 @@ function updUnit(u,dt){
   if(u.cls==='inf'){u.forceProne=Math.max(0,u.forceProne-dt);u.prone=u.supp>32||u.forceProne>0||u.dig}
   if(u.dive){const nx=u.x+u.dive.vx*dt,ny=u.y+u.dive.vy*dt;if(tcost(tix(nx,ny),0)>=0){u.x=nx;u.y=ny}u.dive.t-=dt;if(u.dive.t<=0)u.dive=null;return}
   if(u.dig){if(u.path)u.dig=false;else{u.digT+=dt;if(R()<dt*4)G.parts.push({x:u.x+(R()-.5)*.4,y:u.y+(R()-.5)*.4,h:2,vx:0,vy:0,vh:20,life:.5,max:.5,k:'dust',s:2});
-      if(u.digT>=6){const i=tix(u.x,u.y);if(Fm[i]===0||Fm[i]===4){Fm[i]=5;paintTrench(i%N,(i/N)|0)}u.dig=false}}}
+      if(u.digT>=6){const i=tix(u.x,u.y);if(Fm[i]===0||Fm[i]===4){Fm[i]=5;paintTrench(i%NX,(i/NX)|0)}u.dig=false}}}
   if(T.medic)medicThink(u,dt);
   u.scanT-=dt;if(u.scanT<=0){u.scanT=.3+R()*.15;acquire(u)}
   if(u.ft){if(!alive(u.ft))u.ft=null;else if(!T.kam)approach(u,dt)}
   const halt=u.order==='assault'&&u.target&&u.path&&!u.ft;if(u.pq)u.moving=false;
   if(T.kam)droneThink(u,dt);
   if(u.path&&!halt)moveAlong(u,dt);else u.moving=false;
-  if(u.enterH>=0&&!u.path&&!u.pq)tryEnter(u);
+  if(u.enterH>=0&&!u.pq){const eo=G.objs[u.enterH];if(!u.path||(eo&&Math.hypot(u.x-clamp(u.x,eo.x0,eo.x0+eo.w),u.y-clamp(u.y,eo.y0,eo.y0+eo.h))<1.25)){u.path=null;tryEnter(u)}}
   if(!T.kam)fireThink(u,dt);
   if(u.cls==='inf'&&!u.path&&!u.pq&&!u.dig&&!u.ft&&!u.patient&&u.inHouse<0&&u.enterH<0){u.coverT-=dt;
     if(u.coverT<=0){u.coverT=3+R();const threat=u.threat&&G.t-u.lastHit<4?{x:u.threat[0],y:u.threat[1]}:null;const near=threat||nearestEnemy(u.team,u.x,u.y,UT[u.type].sight+2);
       if(near){const cur=coverAt(u,near);if(cur<.5){let dx=near.x-u.x,dy=near.y-u.y;const dl=Math.hypot(dx,dy)||1;dx/=dl;dy/=dl;
           const res=new Set();for(const o of G.units)if(o!==u&&o.team===u.team&&!o.dead&&o.cls!=='air')res.add(o.path||o.pq?o.destTile:tix(o.x,o.y));
-          const p=findCover(u.x,u.y,2.6,dx,dy,res);const ni=tix(p[0],p[1]);if(coverScore(ni%N,(ni/N)|0,dx,dy)-cur>.22){const o=u.order;setDest(u,p[0],p[1]);u.order=o}}}}}
+          const p=findCover(u.x,u.y,2.6,dx,dy,res);const ni=tix(p[0],p[1]);if(coverScore(ni%NX,(ni/NX)|0,dx,dy)-cur>.22){const o=u.order;setDest(u,p[0],p[1]);u.order=o}}}}}
   if(u.cls==='air'){/* pairo */}
 }
 function approach(u,dt){
@@ -761,8 +784,8 @@ function separate(dt){
       const push=(rr-d)*.5*Math.min(1,dt*8),nx=d>0?dx/d:R()-.5,ny=d>0?dy/d:R()-.5;
       const mu=u.wounded||(!u.path&&v.path)?.2:1,mv=v.wounded||(!v.path&&u.path)?.2:1;
       const ux=u.x-nx*push*mu,uy=u.y-ny*push*mu,vx=v.x+nx*push*mv,vy=v.y+ny*push*mv;
-      if(u.cls==='air'||tcost(tix(ux,uy),UT[u.type].kind||0)>=0){u.x=clamp(ux,.1,N-.1);u.y=clamp(uy,.1,N-.1)}
-      if(v.cls==='air'||tcost(tix(vx,vy),UT[v.type].kind||0)>=0){v.x=clamp(vx,.1,N-.1);v.y=clamp(vy,.1,N-.1)}})}}
+      if(u.cls==='air'||tcost(tix(ux,uy),UT[u.type].kind||0)>=0){u.x=clamp(ux,.1,NX-.1);u.y=clamp(uy,.1,NY-.1)}
+      if(v.cls==='air'||tcost(tix(vx,vy),UT[v.type].kind||0)>=0){v.x=clamp(vx,.1,NX-.1);v.y=clamp(vy,.1,NY-.1)}})}}
 
 // ================================================================ projéteis e efeitos
 function updProjs(dt){
@@ -811,8 +834,9 @@ function updProd(dt){
   for(const o of G.objs){if(!o.alive||o.team<0)continue;
     if(o.built<1){o.built=Math.min(1,o.built+dt/ptime(BT[o.kind].time,o.team));if(o.built>=1&&o.team===0&&!G.demo)toast(`${BT[o.kind].name} pronto`,'g');continue}
     if(!o.queue.length)continue;const T=UT[o.queue[0]];o.prodT+=dt;
-    if(o.prodT>=ptime(T.time,o.team)){if(pop(o.team)<popCap(o.team)){spawnFrom(o,o.queue.shift());o.prodT=0;if(o.team===0)G.uiDirty=true}else o.prodT=ptime(T.time,o.team)}}}
-function defaultRally(o){const dx=MID-o.cx,dy=MID-o.cy,l=Math.hypot(dx,dy)||1;return [o.cx+dx/l*(o.w/2+2.6),o.cy+dy/l*(o.h/2+2.6)]}
+    if(o.prodT>=ptime(T.time,o.team)){if(pop(o.team)<popCap(o.team)&&(o.queue[0]!=='drone'||droneN(o.team)<DRONE_MAX)){spawnFrom(o,o.queue.shift());o.prodT=0;if(o.team===0)G.uiDirty=true}else o.prodT=ptime(T.time,o.team)}}}
+const DRONE_MAX=5;function droneN(t){let n=0;for(const u of G.units)if(!u.dead&&u.team===t&&u.type==='drone')n++;return n}
+function defaultRally(o){const dx=MIDX-o.cx,dy=MIDY-o.cy,l=Math.hypot(dx,dy)||1;return [o.cx+dx/l*(o.w/2+2.6),o.cy+dy/l*(o.h/2+2.6)]}
 function spawnFrom(o,type){
   const rally=o.rally||defaultRally(o);const kind=UT[type].kind||0;let best=null,bd=1e9;
   for(let y=o.y0-1;y<=o.y0+o.h;y++)for(let x=o.x0-1;x<=o.x0+o.w;x++){if(!inb(x,y))continue;if(x>=o.x0&&x<o.x0+o.w&&y>=o.y0&&y<o.y0+o.h)continue;
@@ -821,7 +845,7 @@ function spawnFrom(o,type){
   const u=mkUnit(type,o.team,best[0],best[1]);orderMove([u],rally[0],rally[1],'assault');return u}
 function canPlace(team,kind,x0,y0){
   const B=BT[kind];
-  for(let y=y0;y<y0+B.h;y++)for(let x=x0;x<x0+B.w;x++){if(!inb(x,y)||x<1||y<1||x>N-2||y>N-2)return false;const i=idx(x,y);if(Fm[i]!==0)return false;
+  for(let y=y0;y<y0+B.h;y++)for(let x=x0;x<x0+B.w;x++){if(!inb(x,y)||x<1||y<1||x>NX-2||y>NY-2)return false;const i=idx(x,y);if(Fm[i]!==0)return false;
     for(const d of G.depots)if(Math.hypot(x+.5-d.x,y+.5-d.y)<1.8)return false;
     for(const u of G.units)if(!u.dead&&u.team!==team&&u.cls!=='air'&&tix(u.x,u.y)===i)return false}
   if(B.mine&&G.mines.some(m=>(m.x|0)===x0&&(m.y|0)===y0))return false;
@@ -831,7 +855,7 @@ function place(team,kind,x0,y0){
   if(B.feat){Fm[idx(x0,y0)]=B.feat;return true}
   if(B.mine){G.mines.push({x:x0+.5,y:y0+.5,team});return true}
   const o=mkObj(kind,team,x0,y0,B.w,B.h);o.built=.01;o.seen=team===0;
-  for(const u of G.units){if(u.dead||u.cls==='air')continue;const i=tix(u.x,u.y);if(OB[i]===o.id){const j=nearestPass(i,UT[u.type].kind||0);if(j>=0){u.x=j%N+.5;u.y=((j/N)|0)+.5;u.path=null}}}
+  for(const u of G.units){if(u.dead||u.cls==='air')continue;const i=tix(u.x,u.y);if(OB[i]===o.id){const j=nearestPass(i,UT[u.type].kind||0);if(j>=0){u.x=j%NX+.5;u.y=((j/NX)|0)+.5;u.path=null}}}
   return true}
 
 // ================================================================ IA
@@ -982,9 +1006,9 @@ const SND={ac:null,muted:false,last:{},lastK:{},bank:{},rec:{},ready:false,voice
 // ================================================================ câmera e projeção
 function P(x,y,h){return [W2+((x-y)*TW2-cam.x)*cam.z,H2+((x+y)*TH2-(h||0)-GH(x,y)*ZW-cam.y)*cam.z]}
 function s2w0(sx,sy){const ix=(sx-W2)/cam.z+cam.x,iy=(sy-H2)/cam.z+cam.y;return [(ix/TW2+iy/TH2)/2,(iy/TH2-ix/TW2)/2]}
-function s2w(sx,sy){let w=s2w0(sx,sy);for(let k=0;k<4;k++){const g=GH(clamp(w[0],0,N),clamp(w[1],0,N))*ZW*cam.z;w=s2w0(sx,sy+g)}return w}
+function s2w(sx,sy){let w=s2w0(sx,sy);for(let k=0;k<4;k++){const g=GH(clamp(w[0],0,NX),clamp(w[1],0,NY))*ZW*cam.z;w=s2w0(sx,sy+g)}return w}
 function camTo(x,y){cam.x=(x-y)*TW2;cam.y=(x+y)*TH2;clampCam()}
-function clampCam(){cam.x=clamp(cam.x,-N*TW2,N*TW2);cam.y=clamp(cam.y,0,N*TH2*2);cam.z=clamp(cam.z,.32,3.2)}
+function clampCam(){cam.x=clamp(cam.x,-NY*TW2,NX*TW2);cam.y=clamp(cam.y,0,(NX+NY)*TH2);cam.z=clamp(cam.z,.32,3.2)}
 function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;W2=W/2;H2=H/2;cv.width=W*DPR|0;cv.height=H*DPR|0;if(S3.r)S3.r.setSize(W,H,false);
   $('rot').hidden=!(G&&!G.demo&&H>W&&!G.rotOk)}
 window.addEventListener('resize',resize);
@@ -1538,18 +1562,18 @@ function tryEnter(u){const o=G.objs[u.enterH];u.enterH=-1;if(!o||!o.alive||!(o.k
   const used=new Set();for(const v of G.units)if(!v.dead&&v.inHouse===o.id)used.add(v.spot);
   let s=-1;for(let k=0;k<gCap(o);k++)if(!used.has(k)){s=k;break}if(s<0){if(u.team===0)toast(o.kind==='bunker'?'Bunker cheio (4 soldados)':'Casa cheia (6 soldados)');return}
   u.inHouse=o.id;u.spot=s;const SP=o.kind==='bunker'?[[.32,.3],[-.32,.3],[.32,-.3],[-.3,-.3]]:GSPOT;u.x=o.cx+SP[s][0]*(o.kind==='bunker'?1:(o.w/2-.2)/.8);u.y=o.cy+SP[s][1]*(o.kind==='bunker'?1:(o.h/2-.2)/.8);u.path=null;u.face=Math.atan2(GSPOT[s][1],GSPOT[s][0]);u.forceProne=0}
-function ejectHouse(o,hurt){for(const u of G.units){if(u.dead||u.inHouse!==o.id)continue;u.inHouse=-1;const j=nearestPass(tix(u.x,u.y),0);if(j>=0){u.x=j%N+.5;u.y=((j/N)|0)+.5}if(hurt)dmgUnit(u,50+R()*70,null)}}
+function ejectHouse(o,hurt){for(const u of G.units){if(u.dead||u.inHouse!==o.id)continue;u.inHouse=-1;const j=nearestPass(tix(u.x,u.y),0);if(j>=0){u.x=j%NX+.5;u.y=((j/NX)|0)+.5}if(hurt)dmgUnit(u,50+R()*70,null)}}
 
 // ---------- motor three.js
 const S3={};const FOGU={value:null},DETU={value:null};
-function GH(x,y){if(!Hm)return 0;const fx=clamp(x-.5,0,N-1.001),fy=clamp(y-.5,0,N-1.001);const x0=fx|0,y0=fy|0,tx=fx-x0,ty=fy-y0;
+function GH(x,y){if(!Hm)return 0;const fx=clamp(x-.5,0,NX-1.001),fy=clamp(y-.5,0,NY-1.001);const x0=fx|0,y0=fy|0,tx=fx-x0,ty=fy-y0;
   const a=Hm[idx(x0,y0)],b=Hm[idx(x0+1,y0)],c=Hm[idx(x0,y0+1)],d=Hm[idx(x0+1,y0+1)];return((a*(1-tx)+b*tx)*(1-ty)+(c*(1-tx)+d*tx)*ty)*HS}
 function fogify(mat,detail){mat.onBeforeCompile=sh=>{sh.uniforms.fogT=FOGU;if(detail)sh.uniforms.detT=DETU;
   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec2 vFW;\nattribute float camo;\nvarying float vCamo;\nvarying vec3 vObjP;').replace('#include <begin_vertex>','#include <begin_vertex>\nvCamo=camo;vObjP=position;\nvec4 fwp=vec4(transformed,1.0);\n#ifdef USE_INSTANCING\nfwp=instanceMatrix*fwp;\n#endif\nvFW=(modelMatrix*fwp).xz;');
   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec2 vFW;\nvarying float vCamo;\nvarying vec3 vObjP;\nuniform sampler2D fogT;'+(detail?'\nuniform sampler2D detT;':'')+
     '\nfloat h3(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}\nfloat vn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z);}')
     .replace('#include <color_fragment>','#include <color_fragment>\nif(vCamo>0.5){vec3 q=vObjP*vCamo;float c1=vn(q)*.65+vn(q*2.3)*.35,c2=vn(q*1.6+7.7)*.6+vn(q*3.1+3.3)*.4;if(c1>.56)diffuseColor.rgb*=vec3(.6,.66,.56);else if(c2>.6)diffuseColor.rgb*=vec3(.84,.74,.6);}')
-    .replace('#include <dithering_fragment>','#include <dithering_fragment>\nfloat fv=texture2D(fogT,vFW/'+N.toFixed(1)+').r;\ngl_FragColor.rgb*=mix(0.14,1.0,fv);');
+    .replace('#include <dithering_fragment>','#include <dithering_fragment>\nfloat fv=texture2D(fogT,vFW/vec2('+NX.toFixed(1)+','+NY.toFixed(1)+')).r;\ngl_FragColor.rgb*=mix(0.14,1.0,fv);');
   if(detail)sh.fragmentShader=sh.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\ndiffuseColor.rgb*=texture2D(detT,vFW*1.6).r*0.5+0.75;')};return mat}
 let CAMO_K=0;
 function appendParts(A,parts,pal,ox,oy,oz,ang,sc){
@@ -1622,7 +1646,7 @@ function init3D(){
   S3.scene=new THREE.Scene();S3.cam=new THREE.OrthographicCamera(-1,1,1,-1,1,400);
   S3.sun=new THREE.DirectionalLight(0xffffff,1);S3.sun.castShadow=true;S3.sun.shadow.mapSize.set(2048,2048);S3.sun.shadow.bias=-.0004;S3.sun.shadow.normalBias=.02;
   S3.hemi=new THREE.HemisphereLight(0xffffff,0x444444,.6);
-  S3.fogData=new Uint8Array(N*N*4).fill(255);S3.fogTex=new THREE.DataTexture(S3.fogData,N,N,THREE.RGBAFormat);S3.fogTex.magFilter=THREE.LinearFilter;S3.fogTex.minFilter=THREE.LinearFilter;S3.fogTex.needsUpdate=true;
+  S3.fogData=new Uint8Array(NN*4).fill(255);S3.fogTex=new THREE.DataTexture(S3.fogData,NX,NY,THREE.RGBAFormat);S3.fogTex.magFilter=THREE.LinearFilter;S3.fogTex.minFilter=THREE.LinearFilter;S3.fogTex.needsUpdate=true;
   FOGU.value=S3.fogTex;DETU.value=makeDetail();
   S3.matV=fogify(new THREE.MeshLambertMaterial({vertexColors:true}));
   S3.matT90=fogify(new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide}));
@@ -1642,48 +1666,67 @@ function build3D(){
   S3.sun.color.set(B.sunC);S3.sun.intensity=B.sunI;S3.hemi.color.set(B.sky);S3.hemi.groundColor.set(B.gnd);S3.hemi.intensity=B.hemiI;S3.r.setClearColor(B.clear);
   sc.add(S3.hemi);sc.add(S3.sun);sc.add(S3.sun.target);buildVehGeos();soldierMats();
   S3.gtex=new THREE.CanvasTexture(gcv);S3.gtex.anisotropy=Math.min(8,S3.r.capabilities.getMaxAnisotropy());
-  const geo=new THREE.PlaneGeometry(N,N,N,N);geo.rotateX(-Math.PI/2);geo.translate(N/2,0,N/2);
-  const pos=geo.attributes.position;for(let i=0;i<pos.count;i++)pos.setY(i,GH(pos.getX(i),pos.getZ(i)));geo.computeVertexNormals();
-  if(S3.mtex)S3.mtex.dispose();S3.mtex=new THREE.CanvasTexture(mcv);const tm=new THREE.Mesh(geo,fogify(new THREE.MeshLambertMaterial({map:S3.gtex,alphaMap:S3.mtex,alphaTest:.5}),true));tm.receiveShadow=true;tm.userData.own=true;tm.userData.ownMat=true;sc.add(tm);
+  // chão em blocos de 32x32 (o celular só desenha os blocos que aparecem na tela)
+  if(S3.mtex)S3.mtex.dispose();S3.mtex=new THREE.CanvasTexture(mcv);const gmat=fogify(new THREE.MeshLambertMaterial({map:S3.gtex,alphaMap:S3.mtex,alphaTest:.5}),true);
+  const TCS=32;for(let cy=0;cy<NY;cy+=TCS)for(let cx=0;cx<NX;cx+=TCS){const w=Math.min(TCS,NX-cx),h=Math.min(TCS,NY-cy);
+    const geo=new THREE.PlaneGeometry(w,h,w,h);geo.rotateX(-Math.PI/2);geo.translate(cx+w/2,0,cy+h/2);
+    const pos=geo.attributes.position,uv=geo.attributes.uv;for(let i=0;i<pos.count;i++){const x=pos.getX(i),z=pos.getZ(i);pos.setY(i,GH(x,z));uv.setXY(i,x/NX,1-z/NY)}
+    geo.computeVertexNormals();geo.computeBoundingSphere();
+    const tm=new THREE.Mesh(geo,gmat);tm.receiveShadow=true;tm.userData.own=true;tm.userData.ownMat=cx===0&&cy===0;sc.add(tm)}
+  // água dos rios (superfície semitransparente sobre o leito rebaixado)
+  {const P=[],WY=-.06;for(let i=0;i<NN;i++)if(Fm[i]===10){const x=i%NX,y=(i/NX)|0;P.push(x,WY,y,x,WY,y+1,x+1,WY,y,x+1,WY,y,x,WY,y+1,x+1,WY,y+1)}
+    if(P.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.computeVertexNormals();
+      const wc={inverno:0x4a5f6a,deserto:0x23484a,outono:0x1d3633}[G.biome]||0x23403f;
+      const wm=new THREE.Mesh(g,fogify(new THREE.MeshPhongMaterial({color:wc,transparent:true,opacity:.86,shininess:40,specular:0x223333,depthWrite:false})));wm.receiveShadow=true;wm.renderOrder=1;wm.userData.own=true;wm.userData.ownMat=true;sc.add(wm)}}
   // saia escura em volta do mapa
-  const sk=new THREE.Mesh(new THREE.PlaneGeometry(400,400).rotateX(-Math.PI/2).translate(N/2,-.6,N/2),new THREE.MeshBasicMaterial({color:B.clear}));sk.userData.own=true;sk.userData.ownMat=true;sc.add(sk);
+  const sk=new THREE.Mesh(new THREE.PlaneGeometry(NX+300,NY+300).rotateX(-Math.PI/2).translate(NX/2,-.6,NY/2),new THREE.MeshBasicMaterial({color:B.clear}));sk.userData.own=true;sk.userData.ownMat=true;sc.add(sk);
   // árvores (blocos de 32x32 tiles, visibilidade manual)
-  const kinds=B.trees;const geos=kinds.map((k,i)=>treeGeo(k,G.seed+i*31));const CS=32,NC=Math.ceil(N/CS);const cnt=new Map(),pick=new Map();
-  for(let i=0;i<N*N;i++)if(Fm[i]===1){const v=(hsh(i,4)*kinds.length)|0;const ch=((((i/N)|0)/CS)|0)*NC+(((i%N)/CS)|0);const key=ch*8+v;const k=cnt.get(key)||0;cnt.set(key,k+1);pick.set(i,[key,k])}
+  const kinds=B.trees;const geos=kinds.map((k,i)=>treeGeo(k,G.seed+i*31));const CS=32,NC=Math.ceil(NX/CS);const cnt=new Map(),pick=new Map();
+  for(let i=0;i<NN;i++)if(Fm[i]===1){const v=(hsh(i,4)*kinds.length)|0;const ch=((((i/NX)|0)/CS)|0)*NC+(((i%NX)/CS)|0);const key=ch*8+v;const k=cnt.get(key)||0;cnt.set(key,k+1);pick.set(i,[key,k])}
   S3.treeM=new Map();S3.treeCh=[];
   for(const [key,c] of cnt){const v=key%8,ch=(key/8)|0;const m=new THREE.InstancedMesh(geos[v],S3.matV,c);m.castShadow=true;m.receiveShadow=true;m.frustumCulled=false;m.userData.own=false;sc.add(m);S3.treeM.set(key,m);
     S3.treeCh.push({m,x0:(ch%NC)*CS,y0:((ch/NC)|0)*CS})}
-  for(const [i,[key,k]] of pick){const x=i%N,y=(i/N)|0;const ox=(hsh(i,1)-.5)*.35,oy=(hsh(i,2)-.5)*.35;const s=.8+hsh(i,3)*.45;
+  for(const [i,[key,k]] of pick){const x=i%NX,y=(i/NX)|0;const ox=(hsh(i,1)-.5)*.35,oy=(hsh(i,2)-.5)*.35;const s=.8+hsh(i,3)*.45;
     S3.treeM.get(key).setMatrixAt(k,M4(x+.5+ox,GH(x+.5+ox,y+.5+oy)-.02,y+.5+oy,hsh(i,5)*6.28,0,0,s))}
   for(const m of S3.treeM.values())m.instanceMatrix.needsUpdate=true;
   S3.treeGeos=geos;
   S3.treePick=pick;
   // decoração estática: postes, tufos, caixas dos depósitos
-  const A={p:[],n:[],c:[]};const rr=mulberry32(G.seed+5);
+  const AC=new Map(),Ak=(x,y)=>{const k=((y/32)|0)*100+((x/32)|0);let a=AC.get(k);if(!a){a={p:[],n:[],c:[]};AC.set(k,a)}return a};const rr=mulberry32(G.seed+5);
   for(const pts of G.roadPts){let acc=0;for(let k=1;k<pts.length;k++){const a=pts[k-1],b=pts[k];const d=Math.hypot(b[0]-a[0],b[1]-a[1]);acc+=d;if(acc<4.2)continue;acc=0;
       const nx=-(b[1]-a[1])/d,ny=(b[0]-a[0])/d;const x=b[0]+nx*1.1,y=b[1]+ny*1.1;const i=tix(x,y);if(Fm[i]!==0||Gm[i]===1||!inb(x|0,y|0))continue;const g=GH(x,y);
-      addGeo(A,new THREE.CylinderGeometry(.022,.03,1.35,5),COMMON.pole,M4(x,g+.67,y));addGeo(A,new THREE.BoxGeometry(.36,.035,.035),COMMON.pole,M4(x,g+1.25,y,-Math.atan2(b[1]-a[1],b[0]-a[0])+1.57))}}
+      addGeo(Ak(x,y),new THREE.CylinderGeometry(.022,.03,1.35,5),COMMON.pole,M4(x,g+.67,y));addGeo(Ak(x,y),new THREE.BoxGeometry(.36,.035,.035),COMMON.pole,M4(x,g+1.25,y,-Math.atan2(b[1]-a[1],b[0]-a[0])+1.57))}}
   const tuft=B.tuft;
-  for(let k=0;k<Math.round(260*SC*2);k++){const x=rr()*N,y=rr()*N,i=tix(x,y);if(Fm[i]!==0||Gm[i]===1)continue;const g=GH(x,y);
-    if(tuft==='grass'){for(let j=0;j<5;j++)addGeo(A,new THREE.ConeGeometry(.012,.16+rr()*.1,3),[124,118,96],M4(x+(rr()-.5)*.08,g+.08,y+(rr()-.5)*.08,0,(rr()-.5)*.6,(rr()-.5)*.6))}
-    else if(tuft==='shrub')addGeo(A,new THREE.IcosahedronGeometry(.07+rr()*.06,0),[134,128,82],M4(x,g+.04,y,rr()*6,0,0,1,.6));
-    else addGeo(A,new THREE.IcosahedronGeometry(.08+rr()*.07,0),[[58,80,42],[74,92,46],[120,96,44]][(rr()*3)|0],M4(x,g+.05,y,rr()*6,0,0,1,.7))}
-  for(const d of G.depots)appendParts(A,DEPOT_M,COMMON,d.x,GH(d.x,d.y),d.y,0);
-  const dm=new THREE.Mesh(mkGeo(A),S3.matV);dm.castShadow=true;dm.receiveShadow=true;dm.userData.own=true;sc.add(dm);
-  S3.fm=Fm.slice();S3.statDirty=true;S3.stat=null;buildStatics();
+  for(let k=0;k<Math.round(260*SC*2);k++){const x=rr()*NX,y=rr()*NY,i=tix(x,y);if(Fm[i]!==0||Gm[i]===1)continue;const g=GH(x,y);
+    if(tuft==='grass'){for(let j=0;j<5;j++)addGeo(Ak(x,y),new THREE.ConeGeometry(.012,.16+rr()*.1,3),[124,118,96],M4(x+(rr()-.5)*.08,g+.08,y+(rr()-.5)*.08,0,(rr()-.5)*.6,(rr()-.5)*.6))}
+    else if(tuft==='shrub')addGeo(Ak(x,y),new THREE.IcosahedronGeometry(.07+rr()*.06,0),[134,128,82],M4(x,g+.04,y,rr()*6,0,0,1,.6));
+    else addGeo(Ak(x,y),new THREE.IcosahedronGeometry(.08+rr()*.07,0),[[58,80,42],[74,92,46],[120,96,44]][(rr()*3)|0],M4(x,g+.05,y,rr()*6,0,0,1,.7))}
+  for(const d of G.depots)appendParts(Ak(d.x,d.y),DEPOT_M,COMMON,d.x,GH(d.x,d.y),d.y,0);
+  // pontes: tabuleiro de concreto, guarda-corpo nas laterais e pilares
+  for(let i=0;i<NN;i++)if(Fm[i]===11){const x=i%NX,y=(i/NX)|0,cx=x+.5,cy=y+.5,g=GH(cx,cy),A=Ak(x,y);
+    addGeo(A,new THREE.BoxGeometry(1.02,.08,1.02),[124,118,106],M4(cx,g-.025,cy));
+    for(const s of [-1,1])if(!(inb(x,y+s)&&Fm[idx(x,y+s)]===11)){addGeo(A,new THREE.BoxGeometry(1.02,.06,.07),[96,90,80],M4(cx,g+.06,cy+s*.47));addGeo(A,new THREE.BoxGeometry(.06,.1,.06),[96,90,80],M4(cx,g+.03,cy+s*.47))}
+    for(const s of [-1,1])if(!(inb(x+s,y)&&Fm[idx(x+s,y)]===11)&&inb(x+s,y)&&Fm[idx(x+s,y)]===10)addGeo(A,new THREE.BoxGeometry(.06,.06,1.02),[96,90,80],M4(cx+s*.47,g+.06,cy));
+    if(x%3===0)addGeo(A,new THREE.BoxGeometry(.22,.5,.22),[100,94,84],M4(cx,g-.3,cy))}
+  for(const A of AC.values()){const dm=new THREE.Mesh(mkGeo(A),S3.matV);dm.castShadow=true;dm.receiveShadow=true;dm.userData.own=true;sc.add(dm)}
+  S3.fm=Fm.slice();S3.statDirty=false;S3.statK=new Set();S3.statCh=new Map();buildStatics();
   S3.texT=0;G.texDirty=false;if(DG){DG.fill(0);DM.fill(0)}
   fog3D()}
 function buildStatics(){
-  if(S3.stat){S3.scene.remove(S3.stat);S3.stat.geometry.dispose()}
+  const all=!S3.statK.size,keys=[];if(all){for(let y=0;y<NY;y+=32)for(let x=0;x<NX;x+=32)keys.push((y/32)*100+x/32)}else keys.push(...S3.statK);S3.statK.clear();
+  for(const key of keys)buildStatChunk(key);S3.statDirty=false}
+function buildStatChunk(key){
+  const old=S3.statCh.get(key);if(old){S3.scene.remove(old);old.geometry.dispose();S3.statCh.delete(key)}
+  const X0=(key%100)*32,Y0=((key/100)|0)*32;
   const B=BIOMES[G.biome];const pal={...COMMON,stone:B.wall.stone,cap:B.wall.cap,berm:B.berm,plank:B.plank};const A=NA();CAMO_K=0;const wh=B.wall.h;
   const is=(x,y,f)=>inb(x,y)&&Fm[idx(x,y)]===f;
-  for(let y=0;y<N;y++)for(let x=0;x<N;x++){const f=Fm[idx(x,y)];if(f!==2&&f!==6&&f!==8&&f!==5&&f!==9)continue;const cx=x+.5,cy=y+.5,g=GH(cx,cy);
+  for(let y=Y0;y<Math.min(NY,Y0+32);y++)for(let x=X0;x<Math.min(NX,X0+32);x++){const f=Fm[idx(x,y)];if(f!==2&&f!==6&&f!==8&&f!==5&&f!==9)continue;const cx=x+.5,cy=y+.5,g=GH(cx,cy);
     if(f===9){wireGeo(A,cx,g,cy,(is(x+1,y,9)?1:0)|(is(x-1,y,9)?2:0)|(is(x,y+1,9)?4:0)|(is(x,y-1,9)?8:0));continue}
     if(f===2){const m=(is(x+1,y,2)?1:0)|(is(x-1,y,2)?2:0)|(is(x,y+1,2)?4:0)|(is(x,y-1,2)?8:0);appendParts(A,wallParts(m,wh),pal,cx,g-.05,cy,0)}
     else if(f===6)appendParts(A,SANDBAGS,pal,cx,g-.03,cy,is(x,y+1,6)||is(x,y-1,6)?1.5708:0);
     else if(f===8)appendParts(A,HEDGE,pal,cx,g-.02,cy,hsh(x,y)*3);
     else trenchGeo(A,x,y)}
-  S3.stat=new THREE.Mesh(mkGeo(A),S3.matV);S3.stat.castShadow=true;S3.stat.receiveShadow=true;S3.stat.userData.own=true;S3.scene.add(S3.stat);S3.statDirty=false}
+  if(!A.p.length)return;const m=new THREE.Mesh(mkGeo(A),S3.matV);m.castShadow=true;m.receiveShadow=true;m.userData.own=true;S3.scene.add(m);S3.statCh.set(key,m)}
 function baseY(o){let m=1e9;for(const [a,b] of [[o.x0,o.y0],[o.x0+o.w,o.y0],[o.x0,o.y0+o.h],[o.x0+o.w,o.y0+o.h],[o.cx,o.cy]])m=Math.min(m,GH(a,b));return m}
 function objMesh(o,state){
   let parts,pal;
@@ -1707,7 +1750,7 @@ function mkUnit3(u){
     root.add(rot);root.userData.rot=rot}
   return root}
 function fog3D(){if(!S3.r)return;const d=S3.fogData,v=G.vis[0],e=G.expl;
-  for(let i=0;i<N*N;i++){const val=G.reveal?255:v[i]?255:e[i]?118:28;d[i*4]=d[i*4+1]=d[i*4+2]=val}S3.fogTex.needsUpdate=true}
+  for(let i=0;i<NN;i++){const val=G.reveal?255:v[i]?255:e[i]?118:28;d[i*4]=d[i*4+1]=d[i*4+2]=val}S3.fogTex.needsUpdate=true}
 function syncCam(){
   const z=cam.z,S=45.255*z;const tx=(cam.x/TW2+cam.y/TH2)/2,tz=(cam.y/TH2-cam.x/TW2)/2;const c=S3.cam;
   c.left=-W/2/S;c.right=W/2/S;c.top=H/2/S;c.bottom=-H/2/S;c.position.set(tx+.6124*150,.5*150,tz+.6124*150);c.lookAt(tx,0,tz);c.updateProjectionMatrix();
@@ -1718,14 +1761,14 @@ function syncCam(){
 function sync3D(dt){
   // mudanças de terreno
   const fm=S3.fm;let stat=false;
-  for(let i=0;i<N*N;i++){const a=fm[i],b=Fm[i];if(a===b)continue;
+  for(let i=0;i<NN;i++){const a=fm[i],b=Fm[i];if(a===b)continue;
     if(a===1){const p=S3.treePick.get(i);if(p){const m=S3.treeM.get(p[0]);m.setMatrixAt(p[1],new THREE.Matrix4().makeScale(0,0,0));m.instanceMatrix.needsUpdate=true}}
-    if(a===2||a===5||a===6||a===8||a===9||b===2||b===5||b===6||b===8||b===9)stat=true;fm[i]=b}
+    if(a===2||a===5||a===6||a===8||a===9||b===2||b===5||b===6||b===8||b===9){stat=true;const x=i%NX,y=(i/NX)|0;for(const [dx,dy] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]]){const xx=x+dx,yy=y+dy;if(inb(xx,yy))S3.statK.add(((yy/32)|0)*100+((xx/32)|0))}}fm[i]=b}
   if(stat)S3.statDirty=true;
   S3.statT=(S3.statT||0)-dt;if(S3.statDirty&&S3.statT<=0){S3.statT=.4;buildStatics()}
   S3.texT-=dt;if(G.texDirty&&S3.texT<=0){S3.texT=.2;flushD(S3.gtex,gctx,DG,4);flushD(S3.mtex,mctx,DM,4);G.texDirty=(DG&&DG.some(v=>v))||(DM&&DM.some(v=>v))}
   {const cs=[s2w(-60,-60),s2w(W+60,-60),s2w(-60,H+160),s2w(W+60,H+160)];const xa=Math.min(...cs.map(c=>c[0]))-4,xb=Math.max(...cs.map(c=>c[0]))+4,ya=Math.min(...cs.map(c=>c[1]))-4,yb=Math.max(...cs.map(c=>c[1]))+4;
-    for(const t of S3.treeCh)t.m.visible=t.x0+32>xa&&t.x0<xb&&t.y0+32>ya&&t.y0<yb}
+    for(const t of S3.treeCh){let v=t.x0+32>xa&&t.x0<xb&&t.y0+32>ya&&t.y0<yb;if(v){const q=[P(t.x0,t.y0),P(t.x0+32,t.y0),P(t.x0,t.y0+32),P(t.x0+32,t.y0+32)];const mx=Math.min(...q.map(c=>c[0])),Mx=Math.max(...q.map(c=>c[0])),my=Math.min(...q.map(c=>c[1])),My=Math.max(...q.map(c=>c[1]));v=Mx>-80&&mx<W+80&&My>-40&&my<H+200}t.m.visible=v}}
   const selIn=new Set();for(const u of G.sel)if(u.inHouse>=0)selIn.add(u.inHouse);
   // construções
   for(const o of G.objs){let m=S3.O.get(o.id);const state=!o.alive?'dead':o.kind==='house'&&o.hp/o.max<.5?'dmg':'ok';
@@ -1884,21 +1927,21 @@ function render(){
   cam.x-=sx/z;cam.y-=sy/z;cam.shake=Math.max(0,cam.shake-.04)}
 
 // ================================================================ minimapa
-const mm=$('mm'),mmx=mm.getContext('2d');let mmBase=null;const MW=184,MH=92,MK=MW/(N*TW2*2);
+const mm=$('mm'),mmx=mm.getContext('2d');let mmBase=null;const MW=184,MH=92,MK=MW/((NX+NY)*TW2),MOX=NY*TW2*MK;
 function buildMiniBase(){mmBase=document.createElement('canvas');mmBase.width=MW*2;mmBase.height=MH*2;const c=mmBase.getContext('2d');
-  c.setTransform(2*TW2*MK/TEX,2*TH2*MK/TEX,-2*TW2*MK/TEX,2*TH2*MK/TEX,MW,0);c.drawImage(gcv,0,0)}
-function mmP(x,y){return [MW/2+(x-y)*TW2*MK,(x+y)*TH2*MK]}
+  c.setTransform(2*TW2*MK/TEX,2*TH2*MK/TEX,-2*TW2*MK/TEX,2*TH2*MK/TEX,2*MOX,0);c.drawImage(gcv,0,0)}
+function mmP(x,y){return [MOX+(x-y)*TW2*MK,(x+y)*TH2*MK]}
 function drawMini(){
   const d=Math.min(2,window.devicePixelRatio||1);if(mm.width!==MW*d){mm.width=MW*d;mm.height=MH*d}
   mmx.setTransform(1,0,0,1,0,0);mmx.clearRect(0,0,mm.width,mm.height);mmx.drawImage(mmBase,0,0,mm.width,mm.height);
-  mmx.setTransform(d*TW2*MK,d*TH2*MK,-d*TW2*MK,d*TH2*MK,d*MW/2,0);mmx.imageSmoothingEnabled=true;mmx.drawImage(fcv,0,0);
+  mmx.setTransform(d*TW2*MK,d*TH2*MK,-d*TW2*MK,d*TH2*MK,d*MOX,0);mmx.imageSmoothingEnabled=true;mmx.drawImage(fcv,0,0);
   mmx.setTransform(d,0,0,d,0,0);
   for(const dp of G.depots){const p=mmP(dp.x,dp.y);mmx.fillStyle=dp.owner<0?'#d8d2bd':TEAM[dp.owner].flag;mmx.fillRect(p[0]-3,p[1]-3,6,6);mmx.strokeStyle='#111';mmx.lineWidth=1;mmx.strokeRect(p[0]-3,p[1]-3,6,6)}
   for(const o of G.objs){if(!o.alive||o.team<0||(o.team===1&&!o.seen))continue;const p=mmP(o.cx,o.cy);mmx.fillStyle=TEAM[o.team].dot;mmx.fillRect(p[0]-3.5,p[1]-2.5,7,5)}
   for(const u of G.units){if(u.dead||!visibleToPlayer(u))continue;const p=mmP(u.x,u.y);mmx.fillStyle=u.sel?'#fff':TEAM[u.team].dot;mmx.fillRect(p[0]-1.2,p[1]-1.2,2.4,2.4)}
   for(const pg of G.pings){const p=mmP(pg.x,pg.y);mmx.strokeStyle=`rgba(226,96,74,${pg.t/3})`;mmx.lineWidth=1.5;mmx.beginPath();mmx.arc(p[0],p[1],4+(3-pg.t)*4,0,6.283);mmx.stroke()}
   const cs=[s2w(0,0),s2w(W,0),s2w(W,H),s2w(0,H)].map(c=>mmP(c[0],c[1]));mmx.strokeStyle='rgba(236,230,208,.8)';mmx.lineWidth=1;mmx.beginPath();mmx.moveTo(cs[0][0],cs[0][1]);for(const c of cs)mmx.lineTo(c[0],c[1]);mmx.closePath();mmx.stroke()}
-function mmJump(e){const r=mm.getBoundingClientRect();const mx=(e.clientX-r.left)*MW/r.width,my=(e.clientY-r.top)*MH/r.height;cam.x=(mx-MW/2)/MK;cam.y=my/MK;clampCam()}
+function mmJump(e){const r=mm.getBoundingClientRect();const mx=(e.clientX-r.left)*MW/r.width,my=(e.clientY-r.top)*MH/r.height;cam.x=(mx-MOX)/MK;cam.y=my/MK;clampCam()}
 mm.addEventListener('pointerdown',e=>{e.preventDefault();mm.setPointerCapture(e.pointerId);mmJump(e);mm._d=true});
 mm.addEventListener('pointermove',e=>{if(mm._d)mmJump(e)});
 mm.addEventListener('pointerup',()=>mm._d=false);mm.addEventListener('pointercancel',()=>mm._d=false);
@@ -2004,7 +2047,7 @@ function onTap(sx,sy){
       orderAttack(cap,ob);if(rest.length)orderMove(rest,tx,ty,G.mode);G.marks.push({x:ob.cx,y:ob.cy,t:.6,c:'#e2604a'});return}
     if(ob.team===0&&G.sel.length){clearSel();G.selB=ob;renderPanel();return}}
   if(G.sel.length){orderMove(G.sel,tx,ty,G.mode);G.marks.push({x:tx,y:ty,t:.6,c:'#8fd3f2'});return}
-  if(G.selB&&G.selB.team===0){G.selB.rally=[clamp(tx,.5,N-.5),clamp(ty,.5,N-.5)];G.marks.push({x:tx,y:ty,t:.6,c:'#8fd3f2'});return}
+  if(G.selB&&G.selB.team===0){G.selB.rally=[clamp(tx,.5,NX-.5),clamp(ty,.5,NY-.5)];G.marks.push({x:tx,y:ty,t:.6,c:'#8fd3f2'});return}
   if(G.buildMenu){G.buildMenu=false;renderPanel()}}
 function onScreen(u){const p=P(u.x,u.y);return p[0]>0&&p[0]<W&&p[1]>0&&p[1]<H}
 function boxSelect(b){const x0=Math.min(b[0],b[2]),x1=Math.max(b[0],b[2]),y0=Math.min(b[1],b[3]),y1=Math.max(b[1],b[3]);
@@ -2037,7 +2080,7 @@ function newGame(o){for(const _ of newGameGen(o));}
 function* newGameGen(o){
   yield 'Preparando o mapa';
   G={mines:[],wrecks:[],sandbox:!!o.sandbox,aiOn:true,strikes:[],pathQ:[],tool:null,spT:'rifle',spTeam:0,spQ:1,t:0,biome:o.biome||['inverno','deserto','outono'][(Math.random()*3)|0],burn:[],texDirty:false,roadPts:[],diff:o.diff??1,demo:!!o.demo,auto:!!o.auto,reveal:!!o.demo||!!o.sandbox,res:o.sandbox?[1e9,400]:[400,400],inc:[2,2],units:[],objs:[],depots:[],projs:[],parts:[],tracers:[],flashes:[],marks:[],pings:[],
-    nid:1,vis:[new Uint8Array(N*N),new Uint8Array(N*N)],expl:new Uint8Array(N*N),sup:[null,null],linkedN:[0,0],ais:[],stats:{kills:0,lost:0,by:{}},over:false,sel:[],selB:null,
+    nid:1,vis:[new Uint8Array(NN),new Uint8Array(NN)],expl:new Uint8Array(NN),sup:[null,null],linkedN:[0,0],ais:[],stats:{kills:0,lost:0,by:{}},over:false,sel:[],selB:null,
     placing:null,ghost:null,buildMenu:false,mode:'assault',box:null,uiDirty:true,lastAlert:-99,paused:false,timers:{vis:0,cap:0,sup:0,rs:0,hud:0,mm:0},rotOk:false};
   const seed=o.seed??((Math.random()*1e9)|0);G.seed=seed;
   yield 'Gerando relevo, estradas e vilas';genMap(seed);
@@ -2047,14 +2090,14 @@ function* newGameGen(o){
   yield 'Posicionando as tropas';
   for(let team=0;team<2;team++){const hq=G.objs.find(q=>q.kind==='hq'&&q.team===team);const r=defaultRally(hq);
     const us=['rifle','rifle','rifle','rifle','rifle','mg','medic'].map((t,k)=>mkUnit(t,team,hq.cx+(team?1:-1)*(1.8+(k%3)*.6),hq.cy+(team?1:-1)*(1.8+(k/3|0)*.6)));
-    for(const u of us){const i=tix(u.x,u.y);if(tcost(i,0)<0){const j=nearestPass(i,0);u.x=j%N+.5;u.y=((j/N)|0)+.5}}
+    for(const u of us){const i=tix(u.x,u.y);if(tcost(i,0)<0){const j=nearestPass(i,0);u.x=j%NX+.5;u.y=((j/NX)|0)+.5}}
     orderMove(us,r[0],r[1],'assault')}
   yield 'Montando árvores, casas e veículos em 3D';build3D();FLAKES.length=0;
   yield 'Últimos ajustes';
   G.ais.push(mkAI(1));if(G.demo||G.auto)G.ais.push(mkAI(0));
   updSupply();computeVis(0);computeVis(1);updateFog();
   const hq=G.objs.find(q=>q.kind==='hq'&&q.team===0);
-  if(G.demo){cam.z=1.05;camTo(MID,MID)}else{cam.z=1.35;camTo(hq.cx-3,hq.cy-3)}
+  if(G.demo){cam.z=1.05;camTo(MIDX,MIDY)}else{cam.z=1.35;camTo(hq.cx-4,hq.cy)}
   $('hud').hidden=G.demo;$('end').hidden=true;$('pause').hidden=true;resize();if(!G.demo)renderPanel()}
 function update(dt){
   if(G.over&&!G.demo)dt*=.3;
@@ -2076,7 +2119,7 @@ function update(dt){
   if(G.units.some(u=>u.dead))G.units=G.units.filter(u=>!u.dead);
   updProjs(dt);
   for(const p of G.pings)p.t-=dt;G.pings=G.pings.filter(p=>p.t>0);
-  if(G.demo){const a=G.t*.04;cam.x+=(Math.cos(a)*120-cam.x)*.002;cam.y+=(N*TH2+Math.sin(a)*90-cam.y)*.002;
+  if(G.demo){const a=G.t*.04;cam.x+=(Math.cos(a)*120-cam.x)*.002;cam.y+=(MIDX*TH2+Math.sin(a)*90-cam.y)*.002;
     if(G.over||G.t>600)newGame({demo:true,diff:1})}}
 function endGame(winner){if(G.over)return;G.over=true;if(G.demo)return;
   setTimeout(()=>{$('endT').textContent=winner===0?'Vitória':'Derrota';$('endEy').textContent=winner===0?'QG inimigo destruído':'Nosso QG caiu';
@@ -2122,7 +2165,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&G&&!G.demo
 if(!matchMedia('(pointer:coarse)').matches)$('deskNote').hidden=false;
 
 if(!init3D()){$('nogl').hidden=false}else{makeSprites();resize();requestAnimationFrame(frame)}
-window.__CE={SND,killUnit:u=>killUnit(u),cam,boomFx:(x,y,h,r)=>boomFx(x,y,h,r),get G(){return G},get LOADING(){return LOADING},update:dt=>update(dt),newGame,orderMove,camTo,P,mkUnit,place,UT,BT};
+window.__CE={SND,killUnit:u=>killUnit(u),cam,boomFx:(x,y,h,r)=>boomFx(x,y,h,r),get G(){return G},get LOADING(){return LOADING},get Fm(){return Fm},NX,NY,get gcv(){return gcv},S3,update:dt=>update(dt),newGame,orderMove,camTo,P,mkUnit,place,UT,BT};
 })();
 </script>
 <!--ARTIFACT-BODY-END-->
