@@ -1,0 +1,8 @@
+{
+  "appId": "com.contraencosta.jogo",
+  "appName": "Contra-Encosta",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#12150e"
+  }
+}

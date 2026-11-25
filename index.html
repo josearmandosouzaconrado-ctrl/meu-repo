@@ -156,6 +156,7 @@ h1 span{display:block;color:transparent;-webkit-text-stroke:1.5px var(--ink)}
       <li><b>Assalto x Mover:</b> em Assalto a tropa para e combate ao ver o inimigo. Em Mover ela atira andando e não para.</li>
       <li><b>Suprimentos:</b> depósitos só rendem se estiverem ligados ao QG pela linha (QG → depósitos → caminhões). Fora dela, nada de munição.</li>
       <li><b>Contra-encosta:</b> atrás de um morro, suas tropas ficam fora da vista do inimigo. As curvas de nível mostram a altura.</li>
+      <li><b>Casas:</b> com infantaria selecionada, toque numa casa para entrar (até 6 soldados). Lá dentro eles atiram pelas janelas e ficam bem protegidos. Aproxime o zoom para ver o interior.</li>
       <li><b>Feridos:</b> soldados caídos podem ser salvos por um Socorrista antes do tempo acabar.</li>
       <li><b>Trincheiras:</b> infantaria parada pode cavar. Explosões fazem pouco efeito em quem está dentro.</li>
       <li><b>Vitória:</b> destrua o QG inimigo.</li>
@@ -197,7 +198,7 @@ h1 span{display:block;color:transparent;-webkit-text-stroke:1.5px var(--ink)}
 (()=>{
 'use strict';
 // ================================================================ constantes
-const N=128, SC=N/48, TEX=16, PXS=TEX/32, TW2=32, TH2=16, HZ=10, POP=60;
+const N=192, SC=N/48, TEX=10, PXS=TEX/32, TW2=32, TH2=16, HZ=10, POP=60;
 const cv=document.getElementById('c'), ctx=cv.getContext('2d');
 let W=0,H=0,W2=0,H2=0,DPR=1;
 const $=id=>document.getElementById(id);
@@ -255,7 +256,7 @@ const BT={
   sandbag:{name:'Sacos de areia',w:1,h:1,cost:15,sandbag:true}
 };
 const BUILD_LIST=['barracks','factory','drones','heliport','sandbag'];
-const DEP_HALF=[[.74,.43,'Moinho','Capela'],[.43,.74,'Celeiro','Pedreira'],[.135,.885,'Olaria','Serraria'],[.69,.69,'Fazenda','Estação'],[.6,.555,'Ponte','Forte'],[.3,.92,'Mina','Poço']];
+const DEP_HALF=[[.74,.43,'Moinho','Capela'],[.43,.74,'Celeiro','Pedreira'],[.135,.885,'Olaria','Serraria'],[.69,.69,'Fazenda','Estação'],[.6,.555,'Ponte','Forte'],[.3,.92,'Mina','Poço'],[.88,.3,'Represa','Farol'],[.56,.9,'Cemitério','Quartel Velho']];
 const tc=v=>Math.floor(v*N)+.5;
 const DEPOTS=[[N/2,N/2,'Vila']];for(const [x,y,a,b] of DEP_HALF){DEPOTS.push([tc(x),tc(y),a]);DEPOTS.push([N-tc(x),N-tc(y),b])}
 const HQP=[[N-9,N-9],[6,6]];const MID=N/2;
@@ -295,7 +296,7 @@ function genMap(seed){
   // estradas
   const D=n=>{const d=DEPOTS.find(q=>q[2]===n);return [d[0],d[1]]};const HQc=[N-7.5,N-7.5];
   const roads=[[HQc,D('Fazenda')],[D('Fazenda'),D('Moinho')],[D('Fazenda'),D('Celeiro')],[D('Fazenda'),D('Ponte')],[D('Ponte'),[MID,MID]],[D('Moinho'),[MID,MID]],[D('Celeiro'),[MID,MID]],
-    [D('Celeiro'),D('Mina')],[D('Mina'),D('Olaria')],[D('Moinho'),D('Serraria')],[HQc,[N-7.5,N*.55]],[HQc,[N*.55,N-7.5]]];
+    [D('Celeiro'),D('Mina')],[D('Mina'),D('Olaria')],[D('Moinho'),D('Serraria')],[D('Moinho'),D('Represa')],[D('Fazenda'),D('Cemitério')],[D('Cemitério'),D('Mina')],[D('Represa'),D('Serraria')],[HQc,[N-7.5,N*.55]],[HQc,[N*.55,N-7.5]]];
   G.roadPts=[];const BI=BIOMES[G.biome];
   for(const [a,b] of roads){const L=Math.hypot(b[0]-a[0],b[1]-a[1]);const nx=-(b[1]-a[1])/L,ny=(b[0]-a[0])/L;const ph=r()*6,amp=.8+r()*1.2;const pts=[];
     for(let t=0;t<=1;t+=.2/L){const w=Math.sin(t*Math.PI)*Math.sin(t*Math.PI*2+ph)*amp;const fx=a[0]+(b[0]-a[0])*t+nx*w,fy=a[1]+(b[1]-a[1])*t+ny*w;const x=fx|0,y=fy|0;
@@ -323,7 +324,7 @@ function genMap(seed){
     if(!isHalf(x0,y0))return false;
     for(const i of t.concat(m))Fm[i]=0;
     mkObj('house',-1,x0,y0,2,2,r());mkObj('house',-1,N-2-x0,N-2-y0,2,2,r());return true};
-  const spots=[[MID,MID,14,2.6,9]];for(const d of DEPOTS.slice(1)){if(isHalf(d[0]|0,d[1]|0))spots.push([d[0],d[1],d[2]==='Fazenda'?2:4,2.5,5.5])}
+  const spots=[[MID,MID,20,2.6,11]];for(const d of DEPOTS.slice(1)){if(isHalf(d[0]|0,d[1]|0))spots.push([d[0],d[1],d[2]==='Fazenda'?2:4,2.5,5.5])}
   for(let k=0;k<Math.round(3*SC);k++){const x=10+r()*(N-20),y=10+r()*(N-20);if(isHalf(x|0,y|0))spots.push([x,y,3,1,4])}
   for(const [cx,cy,want,rmin,rmax] of spots){let got=0;for(let k=0;k<80&&got<want;k++){const a=r()*6.283,d=rmin+r()*(rmax-rmin);
       if(tryHouse(Math.round(cx+Math.cos(a)*d-1),Math.round(cy+Math.sin(a)*d-1)))got+=(cx===MID?2:1)}}
@@ -456,7 +457,7 @@ function findPath(sx,sy,tx,ty,kind){
   const txi=t%N,tyi=(t/N)|0,hmin=kind?.6:.75;
   const hf=i=>{const dx=Math.abs(i%N-txi),dy=Math.abs(((i/N)|0)-tyi);return (Math.max(dx,dy)+.414*Math.min(dx,dy))*hmin*1.25};
   PF.st[s]=st;g[s]=0;came[s]=-1;push(s,hf(s));let it=0,found=false;
-  while(heap.length&&it++<40000){const c=pop();if(PF.cl[c]===st)continue;PF.cl[c]=st;if(c===t){found=true;break}
+  while(heap.length&&it++<90000){const c=pop();if(PF.cl[c]===st)continue;PF.cl[c]=st;if(c===t){found=true;break}
     const cx=c%N,cy=(c/N)|0;
     for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const nx=cx+dx,ny=cy+dy;if(!inb(nx,ny))continue;const n=idx(nx,ny);
       if(PF.cl[n]===st)continue;const tc=tcost(n,kind);if(tc<0)continue;
@@ -475,22 +476,22 @@ function los(a,b){
   const ah=eyeOf(a),bh=b.cls?eyeOf(b):Hm[tix(b.cx,b.cy)]+1;const bx=b.cls?b.x:b.cx,by=b.cls?b.y:b.cy;
   const air=a.cls==='air'||b.cls==='air';
   const d=Math.hypot(bx-a.x,by-a.y),n=Math.ceil(d*2);if(n<2)return true;
-  const ai=tix(a.x,a.y),bi=tix(bx,by);let dens=0;
+  const ai=tix(a.x,a.y),bi=tix(bx,by);let dens=0;const ha=a.inHouse>=0?a.inHouse:-9,hb=b.inHouse>=0?b.inHouse:b.kind==='house'?b.id:-9;
   for(let k=1;k<n;k++){const t=k/n;const x=a.x+(bx-a.x)*t,y=a.y+(by-a.y)*t;const i=tix(x,y);const lh=ah+(bh-ah)*t;
     if(Hm[i]>lh+.05)return false;if(i===ai||i===bi)continue;const f=Fm[i];
-    if((f===3||f===7)&&lh<Hm[i]+2.2)return false;
+    if((f===3||f===7)&&lh<Hm[i]+2.2&&OB[i]!==ha&&OB[i]!==hb)return false;
     if(f===1&&!air){dens+=.17;if(dens>=1)return false}}
   return true}
-function castFrom(v,x,y,eye,r){
+function castFrom(v,x,y,eye,r,skip){
   v[tix(x,y)]=1;const n=Math.ceil(r*7);
   for(let k=0;k<n;k++){const a=k/n*6.2832,dx=Math.cos(a),dy=Math.sin(a);let mx=-1e9,dens=0;
     for(let d=.5;d<=r;d+=.5){const px=x+dx*d,py=y+dy*d;if(px<0||py<0||px>=N||py>=N)break;const i=idx(px|0,py|0);const gh=Hm[i];
       if((gh+.5-eye)/d>=mx-.002)v[i]=1;const s2=(gh-eye)/d;if(s2>mx)mx=s2;
-      const f=Fm[i];if(f===3||f===7){v[i]=1;if(eye<gh+2.2)break}
+      const f=Fm[i];if(f===3||f===7){v[i]=1;if(eye<gh+2.2&&OB[i]!==skip)break}
       if(f===1&&eye-gh<2){dens+=.17;if(dens>=1)break}}}}
 function computeVis(team){
   const v=G.vis[team];v.fill(0);
-  for(const u of G.units){if(u.team!==team||u.dead)continue;castFrom(v,u.x,u.y,eyeOf(u),UT[u.type].sight*(u.wounded?.3:1))}
+  for(const u of G.units){if(u.team!==team||u.dead)continue;castFrom(v,u.x,u.y,eyeOf(u),UT[u.type].sight*(u.wounded?.3:1),u.inHouse)}
   for(const o of G.objs){if(!o.alive||o.team!==team)continue;castFrom(v,o.cx,o.cy,Hm[tix(o.cx,o.cy)]+1.6,BT[o.kind].sight)}
   for(const d of G.depots){if(d.owner===team)castFrom(v,d.x,d.y,Hm[tix(d.x,d.y)]+.8,5)}
 }
@@ -512,7 +513,7 @@ function coverScore(x,y,dx,dy){
   if(inb(fx,fy)&&Hm[idx(fx,fy)]-Hm[i]>.5)best=Math.max(best,.45);
   return best}
 function coverAt(u,src){
-  if(u.cls!=='inf')return 0;const i=tix(u.x,u.y);const base=Fm[i]===5?.65:Fm[i]===1?.35:0;
+  if(u.cls!=='inf')return 0;if(u.inHouse>=0)return src.cls==='air'?.5:.75;const i=tix(u.x,u.y);const base=Fm[i]===5?.65:Fm[i]===1?.35:0;
   let dx=src.x-u.x,dy=src.y-u.y;const d=Math.hypot(dx,dy)||1;dx/=d;dy/=d;
   const j=tix(u.x+dx*.75,u.y+dy*.75);let dir=j!==i?COV[Fm[j]]:0;
   let c=Math.max(base,dir);if(src.cls==='air')c*=Fm[i]===5?.75:.4;return c}
@@ -535,7 +536,7 @@ function mkUnit(type,team,x,y){
   const u={id:G.nid++,type,team,cls:T.cls,x,y,hp:T.hp,max:T.hp,path:null,pi:0,face:team?.78:-2.36,tur:team?.78:-2.36,cd:[R(),R()],
     ammo:[T.w?T.w.ammo:0,T.w2?T.w2.ammo:0],supp:0,prone:false,forceProne:0,wounded:false,woundT:0,scanT:R()*.3,target:null,target2:null,ft:null,
     order:'move',flash:0,lastHit:-99,threat:null,coverT:R()*2,setup:0,dig:false,digT:0,alt:T.alt||0,rev:0,gcd:3+R()*5,sel:false,dest:null,destTile:-1,
-    moving:false,anim:R()*10,patient:null,mT:0,medicAuto:false,repT:0,dead:false,dive:null,holder:-1,lastTile:-1};
+    moving:false,anim:R()*10,patient:null,mT:0,medicAuto:false,repT:0,dead:false,dive:null,holder:-1,lastTile:-1,inHouse:-1,enterH:-1,spot:-1};
   G.units.push(u);return u}
 function setDest(u,x,y){
   x=clamp(x,.3,N-.3);y=clamp(y,.3,N-.3);u.dest=[x,y];u.destTile=tix(x,y);u.dig=false;
@@ -558,12 +559,12 @@ function orderMove(us,tx,ty,mode){
   for(const o of G.units)if(o.team===team&&!o.dead&&o.cls!=='air'&&!us.includes(o))res.add(o.path||o.pq?o.destTile:tix(o.x,o.y));
   const sorted=us.slice().sort((a,b)=>Math.hypot(a.x-tx,a.y-ty)-Math.hypot(b.x-tx,b.y-ty));
   const rad=1.6+Math.sqrt(us.length)*.75;let k=0;
-  for(const u of sorted){u.ft=null;u.order=mode;u.patient=null;u.medicAuto=false;u.holder=-1;
+  for(const u of sorted){u.ft=null;u.order=mode;u.patient=null;u.medicAuto=false;u.holder=-1;u.inHouse=-1;u.enterH=-1;
     let p;if(u.cls==='air'){const a=k*2.4,r=k?.8+.4*Math.sqrt(k):0;p=[tx+Math.cos(a)*r,ty+Math.sin(a)*r];k++}
     else if(u.cls==='inf')p=findCover(tx,ty,rad,dx,dy,res);
     else p=findFree(tx,ty,res,UT[u.type].kind);
     setDest(u,p[0],p[1])}}
-function orderAttack(us,tg){for(const u of us){if(u.dead||u.wounded)continue;u.ft=tg;u.order='assault';u.repT=0;u.patient=null;u.medicAuto=false;u.dig=false;u.holder=-1}}
+function orderAttack(us,tg){for(const u of us){if(u.dead||u.wounded)continue;u.inHouse=-1;u.enterH=-1;u.ft=tg;u.order='assault';u.repT=0;u.patient=null;u.medicAuto=false;u.dig=false;u.holder=-1}}
 function alive(t){return t&&(t.cls?!t.dead&&!t.wounded:t.alive)}
 function tpos(t){return t.cls?[t.x,t.y]:[t.cx,t.cy]}
 function distTo(u,t){if(t.cls)return Math.hypot(t.x-u.x,t.y-u.y);const nx=clamp(u.x,t.x0,t.x0+t.w),ny=clamp(u.y,t.y0,t.y0+t.h);return Math.hypot(nx-u.x,ny-u.y)}
@@ -601,7 +602,7 @@ function launch(type,u,x,y,h,w,tg){
   const sp=type==='shell'?22:type==='rocket'?12:0;const T=type==='grenade'?.95:Math.max(.08,d/sp);
   const pr={type,team:u.team,sx,sy,sh,x,y,h,t:0,T,dmg:w.dmg,r:w.splash||1.6,m:w.m,tg,src:u,arc:type==='grenade'?26:type==='shell'?6:2};
   G.projs.push(pr);
-  if(type==='grenade'){for(const e of G.units){if(e.team===u.team||e.cls!=='inf'||e.dead||e.wounded)continue;const dd=Math.hypot(e.x-x,e.y-y);
+  if(type==='grenade'){for(const e of G.units){if(e.team===u.team||e.cls!=='inf'||e.dead||e.wounded||e.inHouse>=0)continue;const dd=Math.hypot(e.x-x,e.y-y);
       if(dd<2.1&&R()<(e.supp>80?.3:.65)){let ax=e.x-x,ay=e.y-y;const al=Math.hypot(ax,ay)||1;ax/=al;ay/=al;
         const nx=e.x+ax*1.3,ny=e.y+ay*1.3;if(tcost(tix(nx,ny),0)>=0){e.dive={vx:ax*1.3/.35,vy:ay*1.3/.35,t:.35+R()*.2};e.forceProne=2.5}}}}}
 function throwGrenade(u,tg){const ap=aimPoint(tg,u);const d=Math.hypot(ap.x-u.x,ap.y-u.y);const sc=.25+d*.08;
@@ -623,7 +624,7 @@ function killUnit(u){
   else{gctx.fillStyle='rgba(40,28,20,.5)';gctx.beginPath();gctx.arc(u.x*TEX,u.y*TEX,4,0,6.283);gctx.fill()}}
 function dmgObj(o,dmg){
   if(!o.alive)return;o.hp-=dmg*(o.built<1?1.5:1);if(o.team===0)alertPlayer(o.cx,o.cy);
-  if(o.hp<=0){o.alive=false;
+  if(o.hp<=0){o.alive=false;if(o.kind==='house')ejectHouse(o,true);
     for(let y=o.y0;y<o.y0+o.h;y++)for(let x=o.x0;x<o.x0+o.w;x++){const i=idx(x,y);Fm[i]=4;OB[i]=-1;paintRubble(x,y,true)}
     for(let k=0;k<5;k++)boomFx(o.x0+R()*o.w,o.y0+R()*o.h,8,1.2);cam.shake=Math.max(cam.shake,.6);SND.play('boom',o.cx,o.cy);
     if(G.selB===o){G.selB=null;G.uiDirty=true}
@@ -631,7 +632,7 @@ function dmgObj(o,dmg){
     if(o.kind==='hq'&&!G.sandbox)endGame(o.team===0?1:0)}}
 function explode(x,y,r,dmg,team,m,src,kind){
   for(const e of G.units){if(e.dead||e.team===team||e.cls==='air')continue;const d=Math.hypot(e.x-x,e.y-y);if(d>r)continue;const f=1-d/r*.6;
-    if(e.cls==='inf'){if(e.wounded){killUnit(e);continue}const k=Fm[tix(e.x,e.y)]===5?.35:e.prone?.6:1;dmgUnit(e,dmg*m[0]*f*k,src);if(!e.dead)e.supp=Math.min(100,e.supp+45*f)}
+    if(e.cls==='inf'){if(e.wounded){killUnit(e);continue}const k=e.inHouse>=0?.45:Fm[tix(e.x,e.y)]===5?.35:e.prone?.6:1;dmgUnit(e,dmg*m[0]*f*k,src);if(!e.dead)e.supp=Math.min(100,e.supp+45*f)}
     else dmgUnit(e,dmg*m[1]*f,src)}
   for(const o of G.objs){if(!o.alive||o.team===team)continue;const nx=clamp(x,o.x0,o.x0+o.w),ny=clamp(y,o.y0,o.y0+o.h);const d=Math.hypot(nx-x,ny-y);
     if(d<=r)dmgObj(o,dmg*(kind==='grenade'?.55:o.kind==='house'?.7:.55)*(1-d/r*.5))}
@@ -672,8 +673,9 @@ function updUnit(u,dt){
   const halt=u.order==='assault'&&u.target&&u.path&&!u.ft;if(u.pq)u.moving=false;
   if(T.kam)droneThink(u,dt);
   if(u.path&&!halt)moveAlong(u,dt);else u.moving=false;
+  if(u.enterH>=0&&!u.path&&!u.pq)tryEnter(u);
   if(!T.kam)fireThink(u,dt);
-  if(u.cls==='inf'&&!u.path&&!u.pq&&!u.dig&&!u.ft&&!u.patient){u.coverT-=dt;
+  if(u.cls==='inf'&&!u.path&&!u.pq&&!u.dig&&!u.ft&&!u.patient&&u.inHouse<0&&u.enterH<0){u.coverT-=dt;
     if(u.coverT<=0){u.coverT=3+R();const threat=u.threat&&G.t-u.lastHit<4?{x:u.threat[0],y:u.threat[1]}:null;const near=threat||nearestEnemy(u.team,u.x,u.y,UT[u.type].sight+2);
       if(near){const cur=coverAt(u,near);if(cur<.5){let dx=near.x-u.x,dy=near.y-u.y;const dl=Math.hypot(dx,dy)||1;dx/=dl;dy/=dl;
           const res=new Set();for(const o of G.units)if(o!==u&&o.team===u.team&&!o.dead&&o.cls!=='air')res.add(o.path||o.pq?o.destTile:tix(o.x,o.y));
@@ -725,7 +727,7 @@ function medicThink(u,dt){
   else if(!u.path){for(const p of G.units){if(p===u||p.team!==u.team||p.cls!=='inf'||p.dead||p.wounded||p.hp>=p.max)continue;if(Math.hypot(p.x-u.x,p.y-u.y)<1.8){p.hp=Math.min(p.max,p.hp+5*dt);break}}}}
 function separate(dt){
   for(const u of G.units){if(u.dead)continue;const ru=u.cls==='inf'?.28:.5;
-    forNear(u.x,u.y,1.1,v=>{if(v.id<=u.id||v.dead)return;if((u.cls==='air')!==(v.cls==='air'))return;
+    if(u.inHouse>=0)continue;forNear(u.x,u.y,1.1,v=>{if(v.id<=u.id||v.dead||v.inHouse>=0)return;if((u.cls==='air')!==(v.cls==='air'))return;
       const rr=ru+(v.cls==='inf'?.28:.5);const dx=v.x-u.x,dy=v.y-u.y;if(dx>rr||dx<-rr||dy>rr||dy<-rr)return;const d=Math.hypot(dx,dy);if(d>=rr)return;
       const push=(rr-d)*.5*Math.min(1,dt*8),nx=d>0?dx/d:R()-.5,ny=d>0?dy/d:R()-.5;
       const mu=u.wounded||(!u.path&&v.path)?.2:1,mv=v.wounded||(!v.path&&u.path)?.2:1;
@@ -844,8 +846,8 @@ function aiArmy(ai){
   // guarnições nos depósitos
   G.depots.forEach((d,di)=>{if(d.owner!==team)return;const hs=mine.filter(u=>u.holder===di);
     if(hs.length<2){const c=army.filter(u=>u.holder<0&&u.cls==='inf'&&Math.hypot(u.x-d.x,u.y-d.y)<5).slice(0,2-hs.length);
-      for(const u of c){orderMove([u],d.x,d.y,'assault');u.holder=di;army.splice(army.indexOf(u),1)}}
-    for(const u of hs){if(!u.path&&!u.dig&&!u.target&&Fm[tix(u.x,u.y)]===0&&R()<.2&&UT[u.type].dig){u.dig=true;u.digT=0}}});
+      for(const u of c){orderMove([u],d.x,d.y,'assault');const h=G.objs.find(o=>o.alive&&o.kind==='house'&&Math.hypot(o.cx-d.x,o.cy-d.y)<6&&houseOcc(o)<4);if(h)orderEnter([u],h);u.holder=di;army.splice(army.indexOf(u),1)}}
+    for(const u of hs){if(!u.path&&!u.dig&&!u.target&&u.inHouse<0&&u.enterH<0&&Fm[tix(u.x,u.y)]===0&&R()<.2&&UT[u.type].dig){u.dig=true;u.digT=0}}});
   // ataque
   const waveSize=Math.min(14,D.wave+Math.floor(ai.wave/2));
   if(ai.target&&ai.target.owner===team)ai.target=null;
@@ -1024,6 +1026,96 @@ const BASEM={
   drones:[box(-.78,.56,-.46,.46,-6,11,'cont'),box(-.78,.56,-.46,.46,11,11.8,'team'),box(.56,.576,-.32,.32,0,9,'door2'),box(-.62,-.38,-.78,-.56,0,4,'crate'),
     box(-.64,-.6,.26,.3,11.8,34,'dark'),frus(-.74,-.5,.16,.4,32,35,.06,'white')]};
 
+// ---------- veículos detalhados (frente +X, cima +Y, lado Z; tiles)
+function M4s(x,y,z,rx,ry,rz,sx,sy,sz){return new THREE.Matrix4().compose(new THREE.Vector3(x,y,z),new THREE.Quaternion().setFromEuler(new THREE.Euler(rx||0,ry||0,rz||0,'YXZ')),new THREE.Vector3(sx||1,sy||1,sz||1))}
+const CAMO={inverno:[[198,202,200],[132,136,130]],deserto:[[198,174,124],[156,132,92]],outono:[[96,108,74],[70,80,56]]};
+function vpal(team){const c=CAMO[G.biome]||CAMO.outono;return {b:c[0],d:c[1],dk:c[1].map(v=>v*.7),team:PAL[team].team,trk:[42,42,38],wh:[62,62,58],hub:[96,96,90],gun:[64,66,62],glass:[56,74,88],tire:[30,30,28],canvas:G.biome==='inverno'?[206,208,204]:G.biome==='deserto'?[190,168,122]:[112,116,84],white:[230,228,220],dark:[40,40,36]}}
+const cylX=(A,x,y,z,r,len,col,seg,r2)=>addSmooth(A,new THREE.CylinderGeometry(r2??r,r,len,seg||10),col,M4s(x,y,z,0,0,-Math.PI/2));
+const cylZ=(A,x,y,z,r,len,col,seg)=>addSmooth(A,new THREE.CylinderGeometry(r,r,len,seg||12),col,M4s(x,y,z,Math.PI/2,0,0));
+const cylY=(A,x,y,z,r,len,col,seg,r2)=>addSmooth(A,new THREE.CylinderGeometry(r2??r,r,len,seg||10),col,M4s(x,y,z));
+const bx=(A,x,y,z,sx,sy,sz,col,ry)=>addGeo(A,new THREE.BoxGeometry(sx,sy,sz),col,M4s(x,y,z,0,ry||0,0));
+function tankGeo(team){
+  const p=vpal(team),H={p:[],n:[],c:[]},T={p:[],n:[],c:[]};const pp={b:p.b,d:p.d,dk:p.dk};
+  for(const s of [-1,1]){const z=s*.31;
+    bx(H,0,.075,z,1.02,.12,.13,p.trk);bx(H,0,.14,z,.98,.012,.135,[54,54,50]);
+    for(let k=0;k<6;k++){const x=-.38+k*.152;cylZ(H,x,.07,z+s*.05,.06,.035,p.wh,14);cylZ(H,x,.07,z+s*.07,.024,.01,p.hub,8)}
+    cylZ(H,.47,.1,z+s*.04,.055,.05,p.wh,12);cylZ(H,-.47,.1,z+s*.04,.05,.05,p.wh,12);
+    bx(H,0,.165,z,1.08,.016,.16,p.d)}
+  appendParts(H,[hexa([[-.52,-.25],[.42,-.25],[.42,.25],[-.52,.25]],[[-.52,-.25],[.42,-.25],[.42,.25],[-.52,.25]],2.5,6.5,'d'),
+    hexa([[.42,-.25],[.6,-.25],[.6,.25],[.42,.25]],[[.42,-.25],[.47,-.25],[.47,.25],[.42,.25]],2.5,7,'b'),
+    hexa([[-.55,-.39],[.5,-.39],[.5,.39],[-.55,.39]],[[-.5,-.33],[.36,-.33],[.36,.33],[-.5,.33]],6.5,10,'b')],pp,0,0,0,0);
+  for(let k=0;k<4;k++)bx(H,-.44+k*.05,.258,0,.03,.006,.36,p.dk);
+  cylX(H,-.56,.2,.2,.02,.08,p.dark,8);bx(H,.2,.26,-.26,.18,.03,.07,p.d);bx(H,-.2,.262,.27,.14,.035,.06,[110,90,60]);
+  cylX(H,.52,.22,-.27,.018,.03,[230,226,190],8);cylX(H,.52,.22,.27,.018,.03,[230,226,190],8);
+  bx(H,-.1,.258,-.12,.2,.004,.12,p.d);bx(H,.15,.258,.15,.14,.004,.1,p.d);
+  // torre
+  const ty=.255;addSmooth(T,new THREE.CylinderGeometry(.2,.25,.15,6),p.b,M4s(-.02,ty+.075,0,0,Math.PI/6,0,1.25,1,1));
+  bx(T,-.32,ty+.07,0,.1,.09,.3,p.d);bx(T,.24,ty+.07,0,.08,.11,.17,p.d);
+  cylX(T,.56,ty+.075,0,.024,.62,p.gun,10,.026);cylX(T,.6,ty+.075,0,.036,.08,p.gun,10);bx(T,.88,ty+.075,0,.06,.05,.05,p.gun);
+  cylY(T,-.1,ty+.17,.08,.06,.05,p.d,10);cylY(T,-.1,ty+.2,.08,.05,.012,p.dk,10);cylX(T,0,ty+.215,.08,.006,.16,p.dark,6);
+  cylY(T,-.3,ty+.32,-.12,.004,.4,p.dark,4);bx(T,-.27,ty+.47,-.12,.06,.03,.004,p.team);
+  for(const s of [-1,1]){bx(T,.08,ty+.08,s*.2,.18,.06,.008,p.team);cylX(T,.14,ty+.13,s*.17,.012,.05,p.dark,6);cylX(T,.14,ty+.11,s*.19,.012,.05,p.dark,6)}
+  bx(T,-.02,ty+.152,0,.12,.004,.24,p.team);
+  return [mkGeo(H),mkGeo(T)]}
+function truckGeo(team){
+  const p=vpal(team),A={p:[],n:[],c:[]};
+  bx(A,-.02,.1,-.11,1,.04,.04,p.dark);bx(A,-.02,.1,.11,1,.04,.04,p.dark);
+  for(const x of [-.36,-.16,.33])for(const s of [-1,1]){cylZ(A,x,.085,s*.2,.085,.075,p.tire,14);cylZ(A,x,.085,s*.24,.035,.01,p.hub,8)}
+  for(const x of [-.26,.33])for(const s of [-1,1])bx(A,x,.18,s*.21,x>0?.2:.42,.014,.11,p.d);
+  bx(A,.3,.24,0,.17,.26,.4,p.b);bx(A,.47,.2,0,.16,.16,.37,p.b);bx(A,.552,.17,0,.008,.09,.3,p.dark);
+  bx(A,.386,.31,0,.004,.09,.32,p.glass);for(const s of [-1,1]){bx(A,.3,.31,s*.201,.1,.08,.004,p.glass);bx(A,.3,.2,s*.201,.08,.06,.004,p.team);cylY(A,.4,.3,s*.23,.006,.08,p.dark,4)}
+  bx(A,.3,.372,0,.18,.012,.41,p.d);
+  bx(A,-.17,.155,0,.66,.07,.44,p.d);for(const s of [-1,1])bx(A,-.17,.21,s*.215,.66,.07,.012,p.d);
+  addSmooth(A,new THREE.CylinderGeometry(.21,.21,.64,14,1,false,0,Math.PI),p.canvas,M4s(-.17,.22,0,0,0,Math.PI/2,1,1,1.05));
+  for(const x of [-.45,-.17,.11])addSmooth(A,new THREE.TorusGeometry(.212,.006,4,12,Math.PI),p.d,M4s(x,.22,0,0,Math.PI/2,0));
+  return mkGeo(A)}
+function heliGeo(team){
+  const p=vpal(team),A={p:[],n:[],c:[]};
+  addSmooth(A,new THREE.SphereGeometry(.2,16,12),p.b,M4s(.02,.12,0,0,0,0,2.1,.95,.82));
+  addSmooth(A,new THREE.SphereGeometry(.12,14,10),p.glass,M4s(.25,.17,0,0,0,0,1.35,.85,.9));
+  cylX(A,-.52,.14,0,.034,.66,p.b,10,.065);bx(A,-.84,.25,0,.12,.2,.012,p.d,0);bx(A,-.76,.15,0,.08,.01,.26,p.d);
+  cylZ(A,-.84,.25,.03,.06,.008,p.dark,12);
+  bx(A,-.02,.1,0,.16,.014,.66,p.d);for(const s of [-1,1]){cylX(A,.02,.07,s*.3,.035,.26,p.dark,10);cylX(A,.16,.07,s*.3,.02,.04,p.dark,8,.035)}
+  for(const s of [-1,1]){cylX(A,0,-.13,s*.16,.012,.62,p.dark,6);cylY(A,-.12,-.07,s*.15,.008,.12,p.dark,5);cylY(A,.14,-.07,s*.15,.008,.12,p.dark,5)}
+  addSmooth(A,new THREE.SphereGeometry(.1,12,8),p.d,M4s(-.06,.28,0,0,0,0,1.8,.7,.85));cylY(A,0,.36,0,.022,.08,p.dark,8);
+  bx(A,-.4,.15,0,.12,.03,.135,p.team);bx(A,-.05,.2,0,.2,.04,.33,p.team);
+  return mkGeo(A)}
+function droneGeo(team){
+  const p=vpal(team),A={p:[],n:[],c:[]};bx(A,0,.03,0,.1,.04,.07,p.dark);bx(A,0,.055,0,.06,.02,.05,PAL[team].team);
+  for(const a of [.785,2.356,3.927,5.498]){const x=Math.cos(a)*.1,z=Math.sin(a)*.1;bx(A,x/2,.035,z/2,.16,.012,.016,p.dark,-a);cylY(A,x,.05,z,.018,.03,[70,70,66],8)}
+  cylX(A,.06,.03,0,.012,.02,[30,30,30],8);return mkGeo(A)}
+function buildVehGeos(){if(S3.vg)for(const k in S3.vg)for(const g of S3.vg[k])g.dispose();
+  const tk=PAL.map((_,t)=>tankGeo(t));S3.vg={tankH:tk.map(a=>a[0]),tankT:tk.map(a=>a[1]),truck:PAL.map((_,t)=>truckGeo(t)),heli:PAL.map((_,t)=>heliGeo(t)),drone:PAL.map((_,t)=>droneGeo(t))}}
+
+// ---------- interior das casas (vista em corte ao aproximar)
+const GSPOT=[[.42,.5],[-.42,.5],[.55,-.42],[.55,.12],[-.42,-.45],[-.05,-.1]];
+function houseCutParts(o){
+  const pal=housePal(o);const hx=o.w/2-.2,hy=o.h/2-.2,Q=[],B=(...a)=>Q.push(box(...a));const des=G.biome==='deserto';const dmg=o.hp/o.max<.5;
+  const W=dmg?'burnt':'wall',wh=8;
+  B(-hx-.03,hx+.03,-hy-.03,hy+.03,-6,2.6,'plinth');B(-hx+.06,hx-.06,-hy+.06,hy-.06,2.6,3.1,'floor');
+  B(-hx,hx,-hy,-hy+.06,2.6,des?21:19,W);B(-hx,-hx+.06,-hy,hy,2.6,des?21:19,W);
+  B(-hx,hx,hy-.06,hy,2.6,wh,W);B(hx-.06,hx,-hy,.35*hy-.12,2.6,wh,W);B(hx-.06,hx,.35*hy+.12,hy,2.6,wh,W);
+  B(-.03,.03,-hy,-.1,2.6,wh,W);B(-.03,.03,.25,hy,2.6,wh,W);
+  B(-hx+.15,-.12,-hy+.12,-hy+.36,3.1,4.2,'rug');B(-hx+.12,-.2,-hy+.12,-hy+.4,3.1,6.2,'bed');B(-hx+.12,-hx+.24,-hy+.12,-hy+.4,6.2,8,'pillow');
+  B(.18,.48,-.5,-.2,3.1,8.2,'wood');for(const [a,b] of [[.14,-.56],[.5,-.56],[.14,-.16],[.5,-.16]])B(a,a+.06,b,b+.06,3.1,6,'wood2');
+  B(-hx+.08,-hx+.2,.12,.55,3.1,13,'wood2');B(.2,.4,.3,.5,3.1,7,'crate');B(-.45,-.25,.2,.4,3.1,5,'crate');
+  if(!dmg)B(-hx*.45,-hx*.45+.13,-.2,-.07,3.1,des?24:22,'brick');
+  return [Q,{...pal,floor:des?[176,150,112]:[132,100,70],rug:des?[150,60,46]:[120,48,40],bed:[206,200,186],pillow:[236,232,222],wood:[110,80,52],wood2:[92,66,44],crate:[140,108,68]}]}
+function houseOcc(o){let n=0;for(const u of G.units)if(!u.dead&&u.inHouse===o.id)n++;return n}
+function orderEnter(us,o){
+  let free=6-houseOcc(o);const res=[];
+  for(const u of us){if(u.cls!=='inf'||u.dead||u.wounded)continue;if(free<=0){res.push(u);continue}free--;
+    u.ft=null;u.order='move';u.patient=null;u.medicAuto=false;u.holder=-1;u.inHouse=-1;
+    let best=null,bd=1e9;for(let y=o.y0-1;y<=o.y0+o.h;y++)for(let x=o.x0-1;x<=o.x0+o.w;x++){if(!inb(x,y))continue;if(x>=o.x0&&x<o.x0+o.w&&y>=o.y0&&y<o.y0+o.h)continue;if(tcost(idx(x,y),0)<0)continue;const d=Math.hypot(x+.5-u.x,y+.5-u.y);if(d<bd){bd=d;best=[x+.5,y+.5]}}
+    if(best){setDest(u,best[0],best[1]);u.enterH=o.id}}
+  return res}
+function tryEnter(u){const o=G.objs[u.enterH];u.enterH=-1;if(!o||!o.alive||o.kind!=='house')return;
+  if(Math.hypot(clamp(u.x,o.x0,o.x0+o.w)-u.x,clamp(u.y,o.y0,o.y0+o.h)-u.y)>1.3)return;
+  const used=new Set();for(const v of G.units)if(!v.dead&&v.inHouse===o.id)used.add(v.spot);
+  let s=-1;for(let k=0;k<GSPOT.length;k++)if(!used.has(k)){s=k;break}if(s<0){if(u.team===0)toast('Casa cheia (6 soldados)');return}
+  u.inHouse=o.id;u.spot=s;u.x=o.cx+GSPOT[s][0]*(o.w/2-.2)/.8;u.y=o.cy+GSPOT[s][1]*(o.h/2-.2)/.8;u.path=null;u.face=Math.atan2(GSPOT[s][1],GSPOT[s][0]);u.forceProne=0}
+function ejectHouse(o,hurt){for(const u of G.units){if(u.dead||u.inHouse!==o.id)continue;u.inHouse=-1;const j=nearestPass(tix(u.x,u.y),0);if(j>=0){u.x=j%N+.5;u.y=((j/N)|0)+.5}if(hurt)dmgUnit(u,50+R()*70,null)}}
+
 // ---------- motor three.js
 const S3={};const FOGU={value:null},DETU={value:null};
 function GH(x,y){if(!Hm)return 0;const fx=clamp(x-.5,0,N-1.001),fy=clamp(y-.5,0,N-1.001);const x0=fx|0,y0=fy|0,tx=fx-x0,ty=fy-y0;
@@ -1031,7 +1123,7 @@ function GH(x,y){if(!Hm)return 0;const fx=clamp(x-.5,0,N-1.001),fy=clamp(y-.5,0,
 function fogify(mat,detail){mat.onBeforeCompile=sh=>{sh.uniforms.fogT=FOGU;if(detail)sh.uniforms.detT=DETU;
   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec2 vFW;').replace('#include <begin_vertex>','#include <begin_vertex>\nvec4 fwp=vec4(transformed,1.0);\n#ifdef USE_INSTANCING\nfwp=instanceMatrix*fwp;\n#endif\nvFW=(modelMatrix*fwp).xz;');
   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec2 vFW;\nuniform sampler2D fogT;'+(detail?'\nuniform sampler2D detT;':''))
-    .replace('#include <dithering_fragment>','#include <dithering_fragment>\nfloat fv=texture2D(fogT,vFW/128.0).r;\ngl_FragColor.rgb*=mix(0.14,1.0,fv);');
+    .replace('#include <dithering_fragment>','#include <dithering_fragment>\nfloat fv=texture2D(fogT,vFW/'+N.toFixed(1)+').r;\ngl_FragColor.rgb*=mix(0.14,1.0,fv);');
   if(detail)sh.fragmentShader=sh.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\ndiffuseColor.rgb*=texture2D(detT,vFW*1.6).r*0.5+0.75;')};return mat}
 function appendParts(A,parts,pal,ox,oy,oz,ang,sc){
   sc=sc||1;const ca=Math.cos(ang||0),sa=Math.sin(ang||0);
@@ -1144,30 +1236,34 @@ function init3D(){
   S3.matV=fogify(new THREE.MeshLambertMaterial({vertexColors:true}));
   S3.matRotor=new THREE.MeshBasicMaterial({color:0x1c1c18,transparent:true,opacity:.16,depthWrite:false});
   S3.matBlade=new THREE.MeshLambertMaterial({color:0x26261f});
-  S3.vg={tankH:PAL.map(p=>partsGeo(TANK_H,p)),tankT:PAL.map(p=>partsGeo(TANK_T,p)),truck:PAL.map(p=>partsGeo(TRUCK,p)),heli:PAL.map(p=>partsGeo(HELI,p)),drone:PAL.map(p=>partsGeo(DRONE,p))};
+  S3.vg=null;
   S3.U=new Map();S3.O=new Map();S3.inst=new Map();S3.ic=new Map();
   return true}
 function disposeTree(o){o.traverse(c=>{if(c.isMesh&&c.userData.own){c.geometry.dispose();if(c.material&&c.userData.ownMat)c.material.dispose()}})}
 function build3D(){
   const sc=S3.scene,B=BIOMES[G.biome];
   for(const c of sc.children.slice()){sc.remove(c);disposeTree(c)}
+  if(S3.treeGeos)for(const g of S3.treeGeos)g.dispose();
   if(S3.gtex)S3.gtex.dispose();
   S3.U=new Map();S3.O=new Map();S3.inst=new Map();
   S3.sun.color.set(B.sunC);S3.sun.intensity=B.sunI;S3.hemi.color.set(B.sky);S3.hemi.groundColor.set(B.gnd);S3.hemi.intensity=B.hemiI;S3.r.setClearColor(B.clear);
-  sc.add(S3.hemi);sc.add(S3.sun);sc.add(S3.sun.target);
+  sc.add(S3.hemi);sc.add(S3.sun);sc.add(S3.sun.target);buildVehGeos();
   S3.gtex=new THREE.CanvasTexture(gcv);S3.gtex.anisotropy=Math.min(8,S3.r.capabilities.getMaxAnisotropy());
-  const geo=new THREE.PlaneGeometry(N,N,N*2,N*2);geo.rotateX(-Math.PI/2);geo.translate(N/2,0,N/2);
+  const geo=new THREE.PlaneGeometry(N,N,N,N);geo.rotateX(-Math.PI/2);geo.translate(N/2,0,N/2);
   const pos=geo.attributes.position;for(let i=0;i<pos.count;i++)pos.setY(i,GH(pos.getX(i),pos.getZ(i)));geo.computeVertexNormals();
   const tm=new THREE.Mesh(geo,fogify(new THREE.MeshLambertMaterial({map:S3.gtex}),true));tm.receiveShadow=true;tm.userData.own=true;tm.userData.ownMat=true;sc.add(tm);
   // saia escura em volta do mapa
   const sk=new THREE.Mesh(new THREE.PlaneGeometry(400,400).rotateX(-Math.PI/2).translate(N/2,-.6,N/2),new THREE.MeshBasicMaterial({color:B.clear}));sk.userData.own=true;sk.userData.ownMat=true;sc.add(sk);
-  // árvores
-  const kinds=B.trees;const geos=kinds.map((k,i)=>treeGeo(k,G.seed+i*31));const cnt=kinds.map(()=>0),pick=new Map();
-  for(let i=0;i<N*N;i++)if(Fm[i]===1){const v=(hsh(i,4)*kinds.length)|0;pick.set(i,[v,cnt[v]++])}
-  S3.treeM=geos.map((g,v)=>{const m=new THREE.InstancedMesh(g,S3.matV,Math.max(1,cnt[v]));m.count=cnt[v];m.castShadow=true;m.receiveShadow=true;m.userData.own=true;sc.add(m);return m});
-  for(const [i,[v,k]] of pick){const x=i%N,y=(i/N)|0;const ox=(hsh(i,1)-.5)*.35,oy=(hsh(i,2)-.5)*.35;const s=.8+hsh(i,3)*.45;
-    S3.treeM[v].setMatrixAt(k,M4(x+.5+ox,GH(x+.5+ox,y+.5+oy)-.02,y+.5+oy,hsh(i,5)*6.28,0,0,s))}
-  for(const m of S3.treeM){m.instanceMatrix.needsUpdate=true;m.computeBoundingSphere?.()}
+  // árvores (blocos de 32x32 tiles, visibilidade manual)
+  const kinds=B.trees;const geos=kinds.map((k,i)=>treeGeo(k,G.seed+i*31));const CS=32,NC=Math.ceil(N/CS);const cnt=new Map(),pick=new Map();
+  for(let i=0;i<N*N;i++)if(Fm[i]===1){const v=(hsh(i,4)*kinds.length)|0;const ch=((((i/N)|0)/CS)|0)*NC+(((i%N)/CS)|0);const key=ch*8+v;const k=cnt.get(key)||0;cnt.set(key,k+1);pick.set(i,[key,k])}
+  S3.treeM=new Map();S3.treeCh=[];
+  for(const [key,c] of cnt){const v=key%8,ch=(key/8)|0;const m=new THREE.InstancedMesh(geos[v],S3.matV,c);m.castShadow=true;m.receiveShadow=true;m.frustumCulled=false;m.userData.own=false;sc.add(m);S3.treeM.set(key,m);
+    S3.treeCh.push({m,x0:(ch%NC)*CS,y0:((ch/NC)|0)*CS})}
+  for(const [i,[key,k]] of pick){const x=i%N,y=(i/N)|0;const ox=(hsh(i,1)-.5)*.35,oy=(hsh(i,2)-.5)*.35;const s=.8+hsh(i,3)*.45;
+    S3.treeM.get(key).setMatrixAt(k,M4(x+.5+ox,GH(x+.5+ox,y+.5+oy)-.02,y+.5+oy,hsh(i,5)*6.28,0,0,s))}
+  for(const m of S3.treeM.values())m.instanceMatrix.needsUpdate=true;
+  S3.treeGeos=geos;
   S3.treePick=pick;
   // decoração estática: postes, tufos, caixas dos depósitos
   const A={p:[],n:[],c:[]};const rr=mulberry32(G.seed+5);
@@ -1175,7 +1271,7 @@ function build3D(){
       const nx=-(b[1]-a[1])/d,ny=(b[0]-a[0])/d;const x=b[0]+nx*1.1,y=b[1]+ny*1.1;const i=tix(x,y);if(Fm[i]!==0||Gm[i]===1||!inb(x|0,y|0))continue;const g=GH(x,y);
       addGeo(A,new THREE.CylinderGeometry(.022,.03,1.35,5),COMMON.pole,M4(x,g+.67,y));addGeo(A,new THREE.BoxGeometry(.36,.035,.035),COMMON.pole,M4(x,g+1.25,y,-Math.atan2(b[1]-a[1],b[0]-a[0])+1.57))}}
   const tuft=B.tuft;
-  for(let k=0;k<Math.round(260*SC*SC);k++){const x=rr()*N,y=rr()*N,i=tix(x,y);if(Fm[i]!==0||Gm[i]===1)continue;const g=GH(x,y);
+  for(let k=0;k<Math.round(260*SC*2);k++){const x=rr()*N,y=rr()*N,i=tix(x,y);if(Fm[i]!==0||Gm[i]===1)continue;const g=GH(x,y);
     if(tuft==='grass'){for(let j=0;j<5;j++)addGeo(A,new THREE.ConeGeometry(.012,.16+rr()*.1,3),[124,118,96],M4(x+(rr()-.5)*.08,g+.08,y+(rr()-.5)*.08,0,(rr()-.5)*.6,(rr()-.5)*.6))}
     else if(tuft==='shrub')addGeo(A,new THREE.IcosahedronGeometry(.07+rr()*.06,0),[134,128,82],M4(x,g+.04,y,rr()*6,0,0,1,.6));
     else addGeo(A,new THREE.IcosahedronGeometry(.08+rr()*.07,0),[[58,80,42],[74,92,46],[120,96,44]][(rr()*3)|0],M4(x,g+.05,y,rr()*6,0,0,1,.7))}
@@ -1229,21 +1325,26 @@ function sync3D(dt){
   // mudanças de terreno
   const fm=S3.fm;let stat=false;
   for(let i=0;i<N*N;i++){const a=fm[i],b=Fm[i];if(a===b)continue;
-    if(a===1){const p=S3.treePick.get(i);if(p){const m=S3.treeM[p[0]];m.setMatrixAt(p[1],new THREE.Matrix4().makeScale(0,0,0));m.instanceMatrix.needsUpdate=true}}
+    if(a===1){const p=S3.treePick.get(i);if(p){const m=S3.treeM.get(p[0]);m.setMatrixAt(p[1],new THREE.Matrix4().makeScale(0,0,0));m.instanceMatrix.needsUpdate=true}}
     if(a===2||a===5||a===6||a===8||b===2||b===5||b===6||b===8)stat=true;fm[i]=b}
   if(stat)S3.statDirty=true;
   S3.statT=(S3.statT||0)-dt;if(S3.statDirty&&S3.statT<=0){S3.statT=.4;buildStatics()}
   S3.texT-=dt;if(G.texDirty&&S3.texT<=0){S3.texT=.45;G.texDirty=false;S3.gtex.needsUpdate=true}
+  {const cs=[s2w(-60,-60),s2w(W+60,-60),s2w(-60,H+160),s2w(W+60,H+160)];const xa=Math.min(...cs.map(c=>c[0]))-4,xb=Math.max(...cs.map(c=>c[0]))+4,ya=Math.min(...cs.map(c=>c[1]))-4,yb=Math.max(...cs.map(c=>c[1]))+4;
+    for(const t of S3.treeCh)t.m.visible=t.x0+32>xa&&t.x0<xb&&t.y0+32>ya&&t.y0<yb}
+  const selIn=new Set();for(const u of G.sel)if(u.inHouse>=0)selIn.add(u.inHouse);
   // construções
   for(const o of G.objs){let m=S3.O.get(o.id);const state=!o.alive?'dead':o.kind==='house'&&o.hp/o.max<.5?'dmg':'ok';
-    if(!m||m.state!==state){if(m){S3.scene.remove(m.mesh);m.mesh.geometry.dispose()}m={state,mesh:state==='dead'?rubbleMesh(o):objMesh(o,state)};S3.scene.add(m.mesh);S3.O.set(o.id,m)}
+    if(!m||m.state!==state){if(m){S3.scene.remove(m.mesh);m.mesh.geometry.dispose();if(m.cutM){S3.scene.remove(m.cutM);m.cutM.geometry.dispose()}}m={state,mesh:state==='dead'?rubbleMesh(o):objMesh(o,state)};S3.scene.add(m.mesh);S3.O.set(o.id,m)}
+    if(o.kind==='house'&&o.alive){o.cut=cam.z>=1.55||selIn.has(o.id);if(o.cut&&!m.cutM){const [q,pal]=houseCutParts(o);m.cutM=new THREE.Mesh(partsGeo(q,pal),S3.matV);m.cutM.position.copy(m.mesh.position);m.cutM.castShadow=true;m.cutM.receiveShadow=true;S3.scene.add(m.cutM)}
+      m.mesh.visible=!o.cut;if(m.cutM)m.cutM.visible=o.cut}
     if(o.alive&&o.team>=0){m.mesh.scale.y=o.built<1?.3+.7*o.built:1;m.mesh.visible=o.team===0||o.seen||G.reveal}}
   // unidades
   const live=new Set();const IC=S3.ic;IC.clear();
   for(const u of G.units){if(u.dead)continue;
-    if(u.cls==='inf'){if(!visibleToPlayer(u))continue;const g=GH(u.x,u.y);const f=Fm[tix(u.x,u.y)];const pose=u.wounded?'w':u.prone?'p':'s';const fr=pose==='s'&&u.moving?((u.anim/.62*8)|0)%8:0;
+    if(u.cls==='inf'){if(!visibleToPlayer(u))continue;let g=GH(u.x,u.y);if(u.inHouse>=0){const h=G.objs[u.inHouse];if(!h||!h.cut)continue;g=baseY(h)+3.1/ZW}const f=Fm[tix(u.x,u.y)];const pose=u.wounded?'w':u.prone?'p':'s';const fr=pose==='s'&&u.moving?((u.anim/.62*8)|0)%8:0;
       const key=u.type+pose+fr+u.team;const c=IC.get(key)||0;let im=S3.inst.get(key);if(!im||c>=im.userData.cap)im=growInst(key,soldierGeo(u.type,pose,fr,u.team),c);
-      _p3.set(u.x,g+(f===5?(pose==='s'?-.2:-.1):(f===2||f===6)&&u.moving?.1:0),u.y);_q3.setFromAxisAngle(_Y3,-u.face);_m3.compose(_p3,_q3,_s3);im.setMatrixAt(c,_m3);IC.set(key,c+1);continue}
+      _p3.set(u.x,g+(u.inHouse>=0?0:f===5?(pose==='s'?-.2:-.1):(f===2||f===6)&&u.moving?.1:0),u.y);_q3.setFromAxisAngle(_Y3,-u.face);_m3.compose(_p3,_q3,_s3);im.setMatrixAt(c,_m3);IC.set(key,c+1);continue}
     live.add(u.id);let o=S3.U.get(u.id);if(!o){o=mkUnit3(u);S3.U.set(u.id,o);S3.scene.add(o)}
     const vis=visibleToPlayer(u);o.visible=vis;if(!vis)continue;const g=GH(u.x,u.y);
     if(u.cls==='veh'){const ca=Math.cos(u.face),sa=Math.sin(u.face);const hf=GH(u.x+ca*.4,u.y+sa*.4),hb=GH(u.x-ca*.4,u.y-sa*.4),hl=GH(u.x-sa*.3,u.y+ca*.3),hr=GH(u.x+sa*.3,u.y-ca*.3);
@@ -1285,7 +1386,9 @@ function draw2DObj(o){
     else if(o.kind==='factory'&&o.queue.length&&R()<.12)G.parts.push(puff('smoke',o.cx-.67,o.cy-.67,by+38,{s:6,gr:7,life:4,vh:14,a0:.4}));
     if(o.built<1){const p=P(o.cx,o.cy,by);ctx.strokeStyle='rgba(232,198,106,.85)';ctx.lineWidth=1.2*s;for(let k=0;k<4;k++){ctx.beginPath();ctx.moveTo(p[0]-22*s+k*13*s,p[1]+4*s);ctx.lineTo(p[0]-16*s+k*13*s,p[1]-26*s);ctx.stroke()}}
     if(o===G.selB||o.hp<o.max)bar(P(o.cx,o.cy,by),o.hp/o.max,o.kind==='hq'?44:30,o.kind==='hq'?34:28,o.team)}
-  else if(o.hp/o.max<.5&&R()<.05)G.parts.push(puff('smoke',o.cx+(R()-.5)*.6,o.cy+(R()-.5)*.6,24,{s:5,gr:6,life:3.5,vh:12,a0:.35}))}
+  else if(o.kind==='house'&&!o.cut){const c=[0,0];for(const u of G.units)if(!u.dead&&u.inHouse===o.id&&(u.team===0||G.reveal||G.vis[0][tix(u.x,u.y)]))c[u.team]++;
+    if(c[0]||c[1]){const p=P(o.cx,o.cy,36);let x=p[0]-(c[0]+c[1])*4;for(let t=0;t<2;t++)for(let k=0;k<c[t];k++){ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(x-1,p[1]-1,8,8);ctx.fillStyle=TEAM[t].dot;ctx.fillRect(x,p[1],6,6);x+=8}}}
+  if(o.kind==='house'&&o.hp/o.max<.5&&R()<.05)G.parts.push(puff('smoke',o.cx+(R()-.5)*.6,o.cy+(R()-.5)*.6,24,{s:5,gr:6,life:3.5,vh:12,a0:.35}))}
 function drawDepot2D(d){const s=cam.z;const p=P(d.x+.3,d.y+.3,36);
   const wv=Math.sin(G.t*3.5+d.x)*2*s;ctx.fillStyle=d.owner<0?'#e6e0cc':TEAM[d.owner].flag;poly([p[0],p[1],p[0]+14*s,p[1]+3*s+wv,p[0]+14*s,p[1]+11*s+wv,p[0],p[1]+9*s]);
   if(cam.z>.8){const q=P(d.x+.3,d.y+.3);ctx.font=`700 ${Math.round(11*Math.min(1.3,s))}px 'Saira Condensed','Arial Narrow',sans-serif`;ctx.textAlign='center';
@@ -1369,7 +1472,7 @@ function render(){
   drawGroundOverlays();
   for(const o of G.objs)draw2DObj(o);
   for(const d of G.depots)drawDepot2D(d);
-  for(const u of G.units){if(u.dead||!visibleToPlayer(u))continue;draw2DUnit(u)}
+  for(const u of G.units){if(u.dead||!visibleToPlayer(u))continue;if(u.inHouse>=0&&!(G.objs[u.inHouse]||{}).cut)continue;draw2DUnit(u)}
   drawFx();drawWeather(dt);
   if(G.box){ctx.strokeStyle='#8fd3f2';ctx.lineWidth=1.5;ctx.fillStyle='rgba(143,211,242,.12)';const bx=Math.min(G.box[0],G.box[2]),by=Math.min(G.box[1],G.box[3]),bw=Math.abs(G.box[2]-G.box[0]),bh=Math.abs(G.box[3]-G.box[1]);ctx.fillRect(bx,by,bw,bh);ctx.strokeRect(bx,by,bw,bh)}
   cam.x-=sx/z;cam.y-=sy/z;cam.shake=Math.max(0,cam.shake-.04)}
@@ -1446,7 +1549,7 @@ panel.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b|
   else if(a==='confirm'){if(G.ghost&&place(0,G.placing,G.ghost[0],G.ghost[1])){G.placing=null;G.ghost=null}else toast('Local inválido: precisa estar livre e dentro da área de suprimento','r')}
   else if(a==='cancelPlace'){G.placing=null;G.ghost=null}
   else if(a==='mode'){G.mode=G.mode==='assault'?'move':'assault';for(const u of G.sel)u.order=G.mode}
-  else if(a==='stop'){for(const u of G.sel){u.path=null;u.ft=null;u.dig=false;u.patient=null;u.medicAuto=false}}
+  else if(a==='stop'){for(const u of G.sel){u.enterH=-1;u.path=null;u.ft=null;u.dig=false;u.patient=null;u.medicAuto=false}}
   else if(a==='dig'){let n=0;for(const u of G.sel){if(!UT[u.type].dig)continue;const f=Fm[tix(u.x,u.y)];if(f!==0&&f!==4)continue;u.path=null;u.dig=true;u.digT=0;n++}if(!n)toast('Aqui não dá para cavar')}
   else if(a==='all'){clearSel();for(const u of G.units)if(u.team===0&&!u.dead&&!u.wounded&&u.type!=='truck'){u.sel=true;G.sel.push(u)}}
   else if(a==='desel'){clearSel();G.buildMenu=false}
@@ -1464,7 +1567,7 @@ function updHUD(){
 
 // ================================================================ toque
 const ptrs=new Map();let gest=null,lastTap={t:0,u:null};
-function pickUnit(sx,sy,own){let b=null,bd=1e9;for(const u of G.units){if(u.dead||!visibleToPlayer(u))continue;if(own!==undefined&&(u.team===0)!==own)continue;
+function pickUnit(sx,sy,own){let b=null,bd=1e9;for(const u of G.units){if(u.dead||!visibleToPlayer(u))continue;if(u.inHouse>=0&&!(G.objs[u.inHouse]||{}).cut)continue;if(own!==undefined&&(u.team===0)!==own)continue;
   const p=P(u.x,u.y,u.alt*HZ);const cy=p[1]-(u.cls==='inf'?7:6)*cam.z;const d=Math.hypot(p[0]-sx,cy-sy);const lim=(u.cls==='inf'?22:30)+6*cam.z;if(d<lim&&d<bd){bd=d;b=u}}return b}
 function onTap(sx,sy){
   const w=s2w(sx,sy);const tx=w[0],ty=w[1];const now=performance.now();
@@ -1484,6 +1587,10 @@ function onTap(sx,sy){
   if(foe&&G.sel.length){orderAttack(G.sel,foe);G.marks.push({x:foe.x,y:foe.y,t:.6,c:'#e2604a'});return}
   const ti=inb(tx|0,ty|0)?idx(tx|0,ty|0):-1;const ob=ti>=0&&OB[ti]>=0?G.objs[OB[ti]]:null;
   if(ob&&ob.alive){
+    if(ob.kind==='house'&&G.sel.length){const foeIn=G.units.some(u=>!u.dead&&u.team===1&&u.inHouse===ob.id);
+      if(!foeIn&&G.sel.some(u=>u.cls==='inf')){const rest=orderEnter(G.sel.filter(u=>u.cls==='inf'),ob).concat(G.sel.filter(u=>u.cls!=='inf'));if(rest.length)orderMove(rest,ob.cx+1.8,ob.cy+1.8,G.mode);
+        G.marks.push({x:ob.cx,y:ob.cy,t:.6,c:'#a5d27f'});toast('Entrando na casa');return}
+      if(foeIn){const ex=G.sel.filter(u=>UT[u.type].w&&(UT[u.type].w.proj||UT[u.type].grenade));orderAttack(ex,ob);const rest=G.sel.filter(u=>!ex.includes(u));if(rest.length)orderMove(rest,tx,ty,G.mode);G.marks.push({x:ob.cx,y:ob.cy,t:.6,c:'#e2604a'});return}}
     if(ob.team===0&&!G.sel.length){clearSel();G.selB=ob;G.buildMenu=false;renderPanel();return}
     if(ob.team!==0&&G.sel.length&&(ob.team===1||G.sel.some(u=>UT[u.type].w&&UT[u.type].w.proj))){
       const cap=G.sel.filter(u=>UT[u.type].w&&(UT[u.type].w.proj||UT[u.type].grenade&&ob.team===1));const rest=G.sel.filter(u=>!cap.includes(u));

@@ -1,0 +1,15 @@
+{
+  "name": "contra-encosta",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Contra-Encosta: estratégia em tempo real para celular",
+  "scripts": {
+    "www": "node scripts/build-www.js"
+  },
+  "dependencies": {
+    "@capacitor/android": "6.2.0",
+    "@capacitor/cli": "6.2.0",
+    "@capacitor/core": "6.2.0",
+    "three": "0.149.0"
+  }
+}

@@ -1,0 +1,68 @@
+name: Gerar APK
+
+on:
+  push:
+    branches: [main, master, ccr-a7a9c330-zgzgqe]
+    paths:
+      - index.html
+      - package.json
+      - capacitor.config.json
+      - scripts/**
+      - android-extra/**
+      - .github/workflows/apk.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+
+      - name: Montar a pasta www
+        run: npm run www
+
+      - name: Criar o projeto Android
+        run: |
+          npx cap add android
+          # Tela sempre deitada
+          sed -i 's/android:name=".MainActivity"/android:name=".MainActivity"\n            android:screenOrientation="sensorLandscape"/' android/app/src/main/AndroidManifest.xml
+          grep -q 'sensorLandscape' android/app/src/main/AndroidManifest.xml
+          cp android-extra/MainActivity.java android/app/src/main/java/com/contraencosta/jogo/MainActivity.java
+          npx cap sync android
+
+      - name: Compilar o APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk ../ContraEncosta.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ContraEncosta-apk
+          path: ContraEncosta.apk
+
+      - name: Publicar na página de Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v1.${{ github.run_number }}"
+          gh release create "$TAG" ContraEncosta.apk \
+            --target "${{ github.sha }}" \
+            --title "Contra-Encosta $TAG" \
+            --notes "APK para Android. Baixe o arquivo ContraEncosta.apk no celular e abra para instalar (permita instalar apps de fontes desconhecidas se o Android pedir)."
