@@ -50,6 +50,8 @@ Dá para instalar na tela inicial pelo menu do navegador ("Adicionar à tela ini
 - **Trincheiras:** a infantaria parada pode cavar.
 - **Linha de suprimento:** depósitos só rendem se estiverem ligados ao QG (QG → depósitos → caminhões). Fora da linha, as tropas não recebem munição.
 - **Casas:** a infantaria entra nas casas (até 6 por casa), atira pelas janelas e fica bem protegida. Aproxime o zoom para ver o interior com os soldados. Se a casa cair, quem está dentro se fere.
+- **Defesas para construir:** torre de vigia (enxerga longe), bunker de concreto (até 4 soldados, proteção máxima), sacos de areia, arame farpado (atrasa a infantaria; o tanque esmaga), ouriço antitanque e mina antitanque (invisível para o inimigo).
+- **Trincheiras cavadas:** buraco de verdade no chão com paredes de tábuas, estrado e sacos de areia.
 - **Destruição:** casas e construções viram escombros. O blindado passa por cima de muros e árvores.
 - **Unidades:** Fuzileiro, Metralhadora, Antitanque, Socorrista, Caminhão, Blindado, Helicóptero e Drone FPV.
 - **Base:** QG, Quartel, Fábrica, Oficina de drones, Heliponto e sacos de areia.
