@@ -64,4 +64,5 @@ Abrir com `#auto` no fim do endereço coloca a IA para jogar pelos dois lados (m
 - Modelo do soldado: "Military RTS Character" (licença CC0, domínio público). Usado com malhas LOD2/LOD3, textura com AO aplicada, esqueleto e poses gerados por código.
 - Tanque inimigo: modelo T-90 enviado pelo usuário (arquivo original em `assets/t90`), simplificado de 304 mil para cerca de 6,7 mil triângulos com [meshoptimizer](https://github.com/zeux/meshoptimizer), com a torre separada do casco.
 - Tanque do jogador: modelo M1 Abrams enviado pelo usuário (arquivos originais em `assets/abrams`), exportado do Blender e simplificado de 45 mil para cerca de 6,9 mil triângulos; a versão destruída vira a carcaça que fica no chão.
+- Fuzil dos fuzileiros: Colt M4A1 low poly enviado pelo usuário (arquivo original em `assets/m4a1`), simplificado de 7,8 mil para cerca de 600 triângulos.
 - Motor 3D: [three.js](https://threejs.org) (MIT).
