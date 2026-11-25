@@ -330,6 +330,13 @@ function genMap(seed){
   for(let i=0;i<NN;i++)if(Fm[i]===10&&Gm[i]===1)Fm[i]=11;
   for(let i=0;i<NN;i++)if(Fm[i]===11){const x=i%NX,y=(i/NX)|0;for(const yy of [y-1,y+1])if(inb(x,yy)&&Fm[idx(x,yy)]===10){Fm[idx(x,yy)]=12;Gm[idx(x,yy)]=1}}
   for(let i=0;i<NN;i++)if(Fm[i]===11||Fm[i]===12){Fm[i]=11;Gm[i]=1;Hm[i]=.02}
+  G.bridges=[];{const seen=new Uint8Array(NN);for(let i=0;i<NN;i++){if(Fm[i]!==11||seen[i])continue;const st=[i];seen[i]=1;let x0=1e9,x1=-1,y0=1e9,y1=-1;
+    while(st.length){const c=st.pop(),cx=c%NX,cy=(c/NX)|0;x0=Math.min(x0,cx);x1=Math.max(x1,cx);y0=Math.min(y0,cy);y1=Math.max(y1,cy);
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=cx+dx,ny=cy+dy;if(!inb(nx,ny))continue;const j=idx(nx,ny);if(Fm[j]===11&&!seen[j]){seen[j]=1;st.push(j)}}}
+    for(let y=y0;y<=y1;y++){while(x0>0&&Fm[idx(x0-1,y)]===10)x0--;while(x1<NX-1&&Fm[idx(x1+1,y)]===10)x1++}
+    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){const j=idx(x,y);if(Fm[j]===10||Fm[j]===11){Fm[j]=11;Gm[j]=1;Hm[j]=.02;seen[j]=1}}
+    for(const x of [x0-1,x1+1])for(let y=y0;y<=y1;y++)if(inb(x,y)&&Fm[idx(x,y)]!==10){const j=idx(x,y);Gm[j]=1;if(Fm[j]===1||Fm[j]===2)Fm[j]=0}
+    G.bridges.push({x0,x1,y0,y1})}}
   // lama: baixadas, margens dos rios e lavouras; muito no outono, pouca no deserto (1 = lama, 2 = lama funda)
   {const mudK={outono:1,inverno:.75,deserto:.3}[G.biome]??.8,mn=makeNoise(r);const th1=1.02-.36*mudK,th2=th1+.11;
     for(let y=0;y<NY;y++)for(let x=0;x<NX/2;x++){const i=idx(x,y);if(Fm[i]>=10||clearZone(x,y))continue;
@@ -725,22 +732,31 @@ function mudFx(u){const ca=Math.cos(u.face),sa=Math.sin(u.face);for(const s of [
 function unitById(id){for(const u of G.units)if(u.id===id)return u;return null}
 function orderBoard(us,a){const T=UT[a.type];let free=T.cap-(a.cargo?a.cargo.length:0)-G.units.filter(u=>u.boardA===a.id&&!u.dead).length;const rest=[];
   for(const u of us){if(u.cls!=='inf'||u.dead||u.wounded||u.inHouse>=0){rest.push(u);continue}if(free<=0){rest.push(u);continue}free--;
-    u.ft=null;u.target=null;u.order='move';u.patient=null;u.medicAuto=false;u.holder=-1;u.enterH=-1;u.dig=false;u.boardA=a.id;u.boardT=0;setDest(u,a.x-Math.cos(a.face)*.6,a.y-Math.sin(a.face)*.6)}
+    u.ft=null;u.target=null;u.order='move';u.patient=null;u.medicAuto=false;u.holder=-1;u.enterH=-1;u.dig=false;u.boardA=a.id;u.boardT=0;u.ramping=false;setDest(u,a.x-Math.cos(a.face)*1.05,a.y-Math.sin(a.face)*1.05)}
   return rest}
 function boardThink(u,dt){const a=unitById(u.boardA);const T=a&&UT[a.type];
-  if(!a||a.dead||a.cargo&&a.cargo.length>=T.cap){u.boardA=null;return}
-  const rx=a.x-Math.cos(a.face)*.6,ry=a.y-Math.sin(a.face)*.6;
-  if(Math.hypot(u.x-rx,u.y-ry)<.75||Math.hypot(u.x-a.x,u.y-a.y)<.8){(a.cargo||(a.cargo=[])).push(u);u.inAPC=a.id;u.boardA=null;u.path=null;u.target=null;u.prone=false;u.supp=0;
-    if(u.sel){u.sel=false;G.sel=G.sel.filter(s=>s!==u);G.uiDirty=true}if(a.cargo.length===1)radio(a,'Tropa embarcando');if(a.sel)G.uiDirty=true;return}
+  if(!a||a.dead||a.cargo&&a.cargo.length>=T.cap||a.unloadQ){u.boardA=null;u.ramping=false;return}
+  const ca=Math.cos(a.face),sa=Math.sin(a.face),rx=a.x-ca*1.05,ry=a.y-sa*1.05;
+  // chega no pé da rampa, espera abrir e sobe até dentro do blindado
+  if(!u.ramping&&Math.hypot(u.x-rx,u.y-ry)<.5&&(a.ramp||0)>.85){u.ramping=true;u.path=[[a.x-ca*.15,a.y-sa*.15]];u.pi=0;u.pq=false;u.dest=null;return}
+  if(u.ramping){if(Math.hypot(u.x-a.x,u.y-a.y)<.4)board();else if(!u.path||Math.hypot(u.x-a.x,u.y-a.y)>2.5)u.ramping=false;return}
+  function board(){(a.cargo||(a.cargo=[])).push(u);u.ramping=false;u.inAPC=a.id;u.boardA=null;u.path=null;u.target=null;u.prone=false;u.supp=0;
+    if(u.sel){u.sel=false;G.sel=G.sel.filter(s=>s!==u);G.uiDirty=true}if(a.cargo.length===1)radio(a,'Tropa embarcando');if(a.sel)G.uiDirty=true}
   u.boardT-=dt;if(u.boardT<=0&&!u.pq){u.boardT=1.2;if(!u.dest||Math.hypot(u.dest[0]-rx,u.dest[1]-ry)>1)setDest(u,rx,ry)}}
-function unloadAPC(a,quiet){if(!a.cargo||!a.cargo.length)return;const ca=Math.cos(a.face),sa=Math.sin(a.face);const rx=a.x-ca*.85,ry=a.y-sa*.85;const res=new Set();
-  const foe=nearestFoeAny(a.team,a.x,a.y,10);
-  for(const u of a.cargo){const p=findFree(rx,ry,res,0);u.x=p[0];u.y=p[1];u.inAPC=0;u.path=null;u.pq=false;u.face=a.face+Math.PI;u.order='assault';u.dest=null;G.units.push(u)}
-  if(foe){const dx=foe.x-a.x,dy=foe.y-a.y,l=Math.hypot(dx,dy)||1,rs=new Set();for(const u of a.cargo){const c=findCover(rx+dx/l*1.5,ry+dy/l*1.5,3,dx/l,dy/l,rs);setDest(u,c[0],c[1])}
+function unloadAPC(a,quiet){if(!a.cargo||!a.cargo.length||a.unloadQ)return;const ca=Math.cos(a.face),sa=Math.sin(a.face);const rx=a.x-ca*1.4,ry=a.y-sa*1.4;
+  const foe=nearestFoeAny(a.team,a.x,a.y,10);a.path=null;a.pq=false;a.rampOpen=true;a.unT=.15;a.unloadQ=a.cargo.slice();a.exitD=[];
+  // destino de cada soldado: cobertura voltada para o inimigo ou leque atrás do blindado
+  if(foe){const dx=foe.x-a.x,dy=foe.y-a.y,l=Math.hypot(dx,dy)||1,rs=new Set();for(let k=0;k<a.unloadQ.length;k++)a.exitD.push(findCover(rx+dx/l*1.5,ry+dy/l*1.5,3.2,dx/l,dy/l,rs));
     if(UT[a.type].smoke&&!(a.smkCD>0))apcSmoke(a,foe)}
+  else{const res=new Set();for(let k=0;k<a.unloadQ.length;k++){const ang=a.face+Math.PI+(k-(a.unloadQ.length-1)/2)*.42;a.exitD.push(findFree(a.x+Math.cos(ang)*2,a.y+Math.sin(ang)*2,res,0))}}
   if(!quiet)radio(a.cargo[0],pick(['Desembarcar! Desembarcar!','Todos para fora!','Desembarcando, cobertura!']));
-  a.cargo=[];a.autoUnload=false;G.uiDirty=true}
-function ejectCargo(a){const res=new Set();for(const u of a.cargo){const p=findFree(a.x,a.y,res,0);u.x=p[0];u.y=p[1];u.inAPC=0;u.path=null;u.pq=false;u.dest=null;G.units.push(u);
+  a.autoUnload=false;G.uiDirty=true}
+function unloadTick(a,dt){a.path=null;a.moving=false;if((a.ramp||0)<.92)return;a.unT-=dt;if(a.unT>0)return;
+  const u=a.unloadQ.shift(),d=a.exitD.shift();a.cargo=a.cargo.filter(q=>q!==u);a.unT=.45;
+  const ca=Math.cos(a.face),sa=Math.sin(a.face);u.x=a.x-ca*.2;u.y=a.y-sa*.2;u.inAPC=0;u.face=a.face+Math.PI;u.order='assault';u.dest=null;u.pq=false;u.ramping=true;
+  u.path=[[a.x-ca*1.1+(R()-.5)*.2,a.y-sa*1.1+(R()-.5)*.2]];u.pi=0;u.afterExit=d;G.units.push(u);
+  if(!a.unloadQ.length){a.unloadQ=null;a.exitD=null;a.closeT=2.2;G.uiDirty=true}}
+function ejectCargo(a){a.unloadQ=null;a.exitD=null;const res=new Set();for(const u of a.cargo){const p=findFree(a.x,a.y,res,0);u.x=p[0];u.y=p[1];u.inAPC=0;u.path=null;u.pq=false;u.dest=null;G.units.push(u);
     if(R()<.35){u.dead=false;killUnit(u)}else{dmgUnit(u,30+R()*45,null);u.supp=100;u.forceProne=3}}a.cargo=[]}
 function nearestFoeAny(team,x,y,r){let b=null,bd=r;forNear(x,y,r,e=>{if(e.team===team||e.dead||e.wounded)return;const d=Math.hypot(e.x-x,e.y-y);if(d<bd&&G.vis[team][tix(e.x,e.y)]){bd=d;b=e}});return b}
 // ---------- fumaça (bloqueia a visão)
@@ -761,17 +777,18 @@ function throwSmoke(u,tx,ty){u.smkCD=35;const d=Math.hypot(tx-u.x,ty-u.y)||1,k=M
 // ---------- rádio
 const SURN=['Silva','Souza','Costa','Rocha','Lima','Alves','Pereira','Ramos','Nunes','Teixeira','Moura','Barros','Freitas','Duarte','Campos','Vieira','Gomes','Cardoso','Mendes','Pinto','Farias','Lopes','Batista','Correia'];
 const pick=a=>a[(Math.random()*a.length)|0];
-function callsign(u){if(!u)return 'QG';if(!u.cs){const h=(u.id*2654435761)>>>0;u.cs=u.type==='tank'?'Blindado '+(u.id%9+1)+'-'+(h%4+1):u.type==='apc'?'Transporte '+(u.id%9+1):u.type==='heli'?'Águia '+(u.id%9+1):u.type==='truck'?'Comboio '+(u.id%9+1):u.type==='drone'?'Drone '+(u.id%20+1):['Sd.','Sd.','Cb.','Sgt.'][h%4]+' '+SURN[(h>>3)%SURN.length]}return u.cs}
+function callsign(u){if(!u)return 'QG';if(!u.cs){const h=(u.id*2654435761)>>>0;u.cs=u.type==='tank'?'Blindado '+(u.id%9+1)+'-'+(h%4+1):u.type==='apc'?'Transporte '+(u.id%9+1):u.type==='heli'?'Águia '+(u.id%9+1):u.type==='truck'?'Comboio '+(u.id%9+1):u.type==='drone'?'Drone '+(u.id%20+1):['Sd.','Sd.','Cb.','Sgt.'][h%4]+' '+SURN[(h>>>3)%SURN.length]}return u.cs}
 let radioTm=0;
 function radio(u,txt,force){if(!G||G.demo)return;if(u&&u.team!==0)return;const now=performance.now();if(!force&&now-(G.radioAt||0)<1400)return;G.radioAt=now;
   const el=$('radio');$('radioTxt').innerHTML=`<b>${callsign(u)}</b> · ${txt}`;el.hidden=false;clearTimeout(radioTm);radioTm=setTimeout(()=>{el.hidden=true},2800);SND.radio&&SND.radio()}
 function moveAlong(u,dt){
+  if(u.unloadQ||(UT[u.type].cap&&(u.ramp||0)>.05&&!u.rampOpen)){u.moving=false;return}if(UT[u.type].cap&&u.rampOpen&&u.path){u.waitMv=(u.waitMv||0)+dt;if(u.waitMv>6){for(const q of G.units)if(q.boardA===u.id){q.boardA=null;q.ramping=false}}u.rampOpen=false;u.closeT=0;u.moving=false;return}u.waitMv=0;
   if(u.stuck>0){u.moving=false;u.mudT=(u.mudT||0)+dt;if(u.mudT>.22){u.mudT=0;mudFx(u)}return}
   const wp=u.path[u.pi];const dx=wp[0]-u.x,dy=wp[1]-u.y,d=Math.hypot(dx,dy);const T=UT[u.type];
   const ang=Math.atan2(dy,dx);
   if(u.cls==='veh'){u.face=turnTo(u.face,ang,2.6*dt);if(angDiff(u.face,ang)>.9&&d>.15){u.moving=true;return}}
   else if(u.cls==='inf'&&!u.target)u.face=ang;else if(u.cls==='air'&&!u.target)u.face=turnTo(u.face,ang,4*dt);
-  const sp=T.spd*speedMul(u)*dt;u.moving=true;
+  const sp=T.spd*speedMul(u)*dt;u.moving=true;if(u.cls==='inf')u.wph=((u.wph||0)+Math.min(d,sp)/.62)%1;
   if(d<=sp){u.x=wp[0];u.y=wp[1];u.pi++;if(u.pi>=u.path.length){u.path=null;u.moving=false}}
   else{u.x+=dx/d*sp;u.y+=dy/d*sp}
   if(u.cls==='veh'){u.trk=(u.trk||0)+Math.min(d,sp);if(u.trk>.12){u.trk=0;paintTracks(u)}
@@ -781,7 +798,11 @@ function moveAlong(u,dt){
 
 function updUnit(u,dt){
   if(u.boardA!=null&&u.boardA!==undefined)boardThink(u,dt);if(u.smkCD>0)u.smkCD-=dt;
-  if(u.cargo&&u.cargo.length&&((u.autoUnload&&!u.path&&!u.pq)||u.hp<u.max*.4))unloadAPC(u);
+  if(u.cargo&&u.cargo.length&&!u.unloadQ&&((u.autoUnload&&!u.path&&!u.pq)||u.hp<u.max*.4))unloadAPC(u);
+  if(UT[u.type].cap){if(u.unloadQ)unloadTick(u,dt);else{let near=false;for(const q of G.units)if(q.boardA===u.id&&!q.dead&&Math.hypot(q.x-u.x,q.y-u.y)<3.2){near=true;break}
+      if(near){u.rampOpen=true;u.closeT=1.5}else if(u.rampOpen){u.closeT=(u.closeT||0)-dt;if(u.closeT<=0)u.rampOpen=false}}
+    const tr=u.rampOpen?1:0;u.ramp=(u.ramp||0)+clamp(tr-(u.ramp||0),-dt*1.3,dt*1.3)}
+  if(u.afterExit&&!u.path&&!u.pq){u.ramping=false;const d=u.afterExit;u.afterExit=null;setDest(u,d[0],d[1])}
   if(u.stuck>0){let k=1;forNear(u.x,u.y,2.6,e=>{if(e!==u&&e.team===u.team&&!e.dead&&e.cls==='veh'&&!(e.stuck>0))k=2.5});u.stuck-=dt*k;
     if(u.stuck<=0&&u.team===0&&!G.demo&&u.sel)toast(`${UT[u.type].name} saiu da lama`,'g')}
   const T=UT[u.type];u.flash=Math.max(0,u.flash-dt);u.anim+=dt;
@@ -851,7 +872,7 @@ function medicThink(u,dt){
   else if(!u.path){for(const p of G.units){if(p===u||p.team!==u.team||p.cls!=='inf'||p.dead||p.wounded||p.hp>=p.max)continue;if(Math.hypot(p.x-u.x,p.y-u.y)<1.8){p.hp=Math.min(p.max,p.hp+5*dt);break}}}}
 function separate(dt){
   for(const u of G.units){if(u.dead)continue;const ru=u.cls==='inf'?.28:.5;
-    if(u.inHouse>=0)continue;forNear(u.x,u.y,1.1,v=>{if(v.id<=u.id||v.dead||v.inHouse>=0)return;if((u.cls==='air')!==(v.cls==='air'))return;
+    if(u.inHouse>=0)continue;forNear(u.x,u.y,1.1,v=>{if(v.id<=u.id||v.dead||v.inHouse>=0)return;if((u.cls==='air')!==(v.cls==='air'))return;if((u.ramping&&v.cls==='veh')||(v.ramping&&u.cls==='veh'))return;
       const rr=ru+(v.cls==='inf'?.28:.5);const dx=v.x-u.x,dy=v.y-u.y;if(dx>rr||dx<-rr||dy>rr||dy<-rr)return;const d=Math.hypot(dx,dy);if(d>=rr)return;
       const push=(rr-d)*.5*Math.min(1,dt*8),nx=d>0?dx/d:R()-.5,ny=d>0?dy/d:R()-.5;
       const mu=u.wounded||(!u.path&&v.path)?.2:1,mv=v.wounded||(!v.path&&u.path)?.2:1;
@@ -1478,9 +1499,13 @@ function solvePose(type,pose,fr){
   // devolve as transformações de cada osso e os pontos para equipamento
   const q=(x,y,z)=>new THREE.Quaternion().setFromEuler(new THREE.Euler(x,y,z,'YXZ'));
   let pelvQ,pelvP,chestQl=q(0,0,0),headQl=q(0,0,0),hands,feet,poleA=[V3(-1,-.6,-.3),V3(.4,-1,.1)],poleK=V3(0,.2,1);
-  const walk=pose==='s'&&fr>0,ph=walk?(fr-1)/8*6.283:0;
-  if(pose==='s'){const bob=walk?Math.abs(Math.sin(ph))*.012:0;pelvQ=q(walk?.06:.04,walk?.12:.28,0);pelvP=V3(0,.485-bob,0);chestQl=q(walk?.05:.06,walk?-.08:-.24,0);headQl=q(-.05,walk?0:-.05,0);
-    if(walk){const s=Math.sin(ph),c=Math.cos(ph);feet=[V3(-.08,.065+Math.max(0,-c)*.06,.17*s),V3(.08,.065+Math.max(0,c)*.06,-.17*s)]}else feet=[V3(-.1,.065,-.1),V3(.07,.065,.11)]}
+  const walk=pose==='s'&&fr>0,ph=walk?(fr-1)/12:0;
+  // corrida: cada pé fica 40% do ciclo apoiado (vai de +A a -A) e 60% no ar (volta levantando o joelho)
+  const footRun=(p)=>{p=((p%1)+1)%1;const A=.27;if(p<.4){const t=p/.4;return [A-2*A*t,0]}const t=(p-.4)/.6,e=t*t*(3-2*t);return [-A+2*A*e,Math.sin(Math.PI*t)*.15+Math.max(0,.35-t)*.12]};
+  if(pose==='s'){
+    if(walk){const tw=Math.sin(ph*6.283);const py=.452+.024*(.5-.5*Math.cos(2*6.283*(ph-.2)));pelvQ=q(.2,.12+tw*.1,tw*.03);pelvP=V3(0,py,0);chestQl=q(.04,-.1-tw*.14,0);headQl=q(-.22,-.02+tw*.06,0);
+      const fR=footRun(ph),fL=footRun(ph+.5);feet=[V3(-.085,.065+fR[1],fR[0]),V3(.085,.065+fL[1],fL[0])];poleK=V3(0,.1,1)}
+    else{pelvQ=q(.04,.28,0);pelvP=V3(0,.485,0);chestQl=q(.06,-.24,0);headQl=q(-.05,-.05,0);feet=[V3(-.1,.065,-.1),V3(.07,.065,.11)]}}
   else if(pose==='p'){pelvQ=q(Math.PI/2,0,0);pelvP=V3(0,.115,-.05);headQl=q(-.75,0,0);feet=[V3(-.12,.07,-.5),V3(.1,.07,-.5)];poleK=V3(0,-1,0)}
   else{pelvQ=q(-Math.PI/2,0,0);pelvP=V3(0,.1,0);headQl=q(.3,.4,0);feet=[V3(-.17,.07,.44),V3(.12,.07,.43)];poleK=V3(0,1,0);poleA=[V3(0,1,0),V3(0,1,0)]}
   const T={};const restOf=k=>vA(RJ[k]);
@@ -1493,9 +1518,9 @@ function solvePose(type,pose,fr){
   const fwd=V3(0,0,1).applyQuaternion(chestQ),upv=V3(0,1,0).applyQuaternion(chestQ);
   let butt,muz,hR,hL,tube=null;
   if(pose==='s'){
-    const aimDir=walk?V3(0,-.3,1).normalize():V3(.05,-.04,1).normalize();butt=SR.clone().add(V3(.035,-.03,.05));
+    const aimDir=walk?V3(.03,-.2,1).normalize():V3(.05,-.04,1).normalize();butt=walk?SR.clone().add(V3(.04,-.06,.05)):SR.clone().add(V3(.035,-.03,.05));
     if(type==='at'){tube=[SR.clone().add(V3(.0,.04,-.2)),SR.clone().add(V3(.02,.06,.38))];hR=SR.clone().add(V3(.03,-.03,.12));hL=SR.clone().add(V3(.06,.0,.26))}
-    else if(type==='medic'){butt=null;hR=SR.clone().add(V3(-.02,-.22,.1));hL=SL.clone().add(V3(.02,-.24,.06))}
+    else if(type==='medic'){butt=null;const sw=walk?Math.sin(ph*6.283):0;hR=SR.clone().add(V3(-.02,-.2,.1+sw*.16));hL=SL.clone().add(V3(.02,-.2,.06-sw*.16))}
     else{const len=type==='mg'?.62:.55;if(type==='mg'){butt=SR.clone().add(V3(.04,-.14,.02));}muz=butt.clone().add(aimDir.clone().multiplyScalar(len));
       hR=butt.clone().add(aimDir.clone().multiplyScalar(.15)).add(V3(0,-.03,0));hL=butt.clone().add(aimDir.clone().multiplyScalar(type==='mg'?.36:.33)).add(V3(.01,-.015,0))}}
   else if(pose==='p'){butt=SR.clone().add(V3(.04,-.02,.06));const dir=V3(.08,-.02,1).normalize();
@@ -1591,10 +1616,15 @@ const STRYKER_ASSET={"pal":[[28,24,19],[98,92,75],[88,83,66],[161,162,158],[67,6
 function strykerGeos(){
   if(S3.stk)return S3.stk;const A=STRYKER_ASSET;const hull=partGeo(A.parts.hull,A.pal,1e-4,.86),tur=partGeo(A.parts.tur,A.pal,1e-4,.86);
   const st=PAL.map(P=>{const q=NA();CAMO_K=0;for(const z of [-.216,.216])bx(q,-.18,.3,z,.2,.035,.006,P.team);bx(q,.43,.36,0,.006,.03,.12,P.team);return mkGeo(q,0)});
-  return S3.stk={hull,tur,st,pivot:A.pivot}}
+  // rampa: placa de 0,26 x 0,25 articulada embaixo; nervuras e degraus por dentro
+  const R=NA();CAMO_K=0;const oc=[76,72,58];bx(R,-.012,.125,0,.024,.25,.26,oc);for(const y of [.05,.12,.19])bx(R,.004,y,0,.012,.018,.22,[56,54,46]);for(const z of [-.12,.12])bx(R,-.026,.125,z,.006,.24,.016,[62,60,50]);
+  const H=NA();bx(H,-.49,.2,0,.01,.24,.24,[14,13,11]);for(const z of [-.08,.08])bx(H,-.47,.17,z,.05,.06,.06,[40,38,32]);
+  return S3.stk={hull,tur,st,pivot:A.pivot,ramp:mkGeo(R,0),hole:mkGeo(H,0)}}
 function strykerUnit(team){const t=strykerGeos();const root=new THREE.Group();root.rotation.order='YXZ';const h=new THREE.Mesh(t.hull,S3.matT90);h.castShadow=true;h.receiveShadow=true;root.add(h);
   const s=new THREE.Mesh(t.st[team],S3.matV);root.add(s);
-  const tg=new THREE.Group();tg.position.set(t.pivot[0],t.pivot[1],t.pivot[2]);const tm=new THREE.Mesh(t.tur,S3.matT90);tm.castShadow=true;tg.add(tm);root.add(tg);root.userData.tur=tg;return root}
+  const tg=new THREE.Group();tg.position.set(t.pivot[0],t.pivot[1],t.pivot[2]);const tm=new THREE.Mesh(t.tur,S3.matT90);tm.castShadow=true;tg.add(tm);root.add(tg);root.userData.tur=tg;
+  const hole=new THREE.Mesh(t.hole,S3.matV);root.add(hole);
+  const rg=new THREE.Group();rg.position.set(-.497,.075,0);const rm=new THREE.Mesh(t.ramp,S3.matT90);rm.castShadow=true;rg.add(rm);root.add(rg);root.userData.ramp=rg;return root}
 // ---------- M1 Abrams do jogador + carcaças de tanques destruídos
 function partGeo(part,pal,k,mul){const p=new Int16Array(b64u8(part.p).buffer),c=b64u8(part.c),ix=new Uint16Array(b64u8(part.i).buffer);const n=part.ni;mul=mul||1;
   const pos=new Float32Array(n*3),col=new Float32Array(n*3);
@@ -1794,12 +1824,19 @@ function build3D(){
     else if(tuft==='shrub')addGeo(Ak(x,y),new THREE.IcosahedronGeometry(.07+rr()*.06,0),[134,128,82],M4(x,g+.04,y,rr()*6,0,0,1,.6));
     else addGeo(Ak(x,y),new THREE.IcosahedronGeometry(.08+rr()*.07,0),[[58,80,42],[74,92,46],[120,96,44]][(rr()*3)|0],M4(x,g+.05,y,rr()*6,0,0,1,.7))}
   for(const d of G.depots)appendParts(Ak(d.x,d.y),DEPOT_M,COMMON,d.x,GH(d.x,d.y),d.y,0);
-  // pontes: tabuleiro de concreto, guarda-corpo nas laterais e pilares
-  for(let i=0;i<NN;i++)if(Fm[i]===11){const x=i%NX,y=(i/NX)|0,cx=x+.5,cy=y+.5,g=GH(cx,cy),A=Ak(x,y);
-    addGeo(A,new THREE.BoxGeometry(1.02,.08,1.02),[124,118,106],M4(cx,g-.025,cy));
-    for(const s of [-1,1])if(!(inb(x,y+s)&&Fm[idx(x,y+s)]===11)){addGeo(A,new THREE.BoxGeometry(1.02,.06,.07),[96,90,80],M4(cx,g+.06,cy+s*.47));addGeo(A,new THREE.BoxGeometry(.06,.1,.06),[96,90,80],M4(cx,g+.03,cy+s*.47))}
-    for(const s of [-1,1])if(!(inb(x+s,y)&&Fm[idx(x+s,y)]===11)&&inb(x+s,y)&&Fm[idx(x+s,y)]===10)addGeo(A,new THREE.BoxGeometry(.06,.06,1.02),[96,90,80],M4(cx+s*.47,g+.06,cy));
-    if(x%3===0)addGeo(A,new THREE.BoxGeometry(.22,.5,.22),[100,94,84],M4(cx,g-.3,cy))}
+  // pontes de concreto: tabuleiro com asfalto e faixa, calçadas, guarda-corpo de aço, vigas, pilares no rio, cabeceiras e postes de luz
+  for(const b of G.bridges||[]){const X0=b.x0-.35,X1=b.x1+1.35,Y0=b.y0,Y1=b.y1+1,L=X1-X0,Wd=Y1-Y0,cx=(X0+X1)/2,cy=(Y0+Y1)/2,A=Ak(cx,cy);
+    const top=Math.max(GH(cx,cy),GH(X0+.2,cy),GH(X1-.2,cy))+.012;const BX=(x,y,z,sx,sy,sz,c)=>addGeo(A,new THREE.BoxGeometry(sx,sy,sz),c,M4(x,y,z));
+    const conc=[150,146,138],conc2=[128,124,116],asph=[58,58,56],steel=[112,118,122];
+    BX(cx,top-.045,cy,L,.09,Wd+.04,conc);BX(cx,top+.002,cy,L,.012,Wd-.3,asph);
+    for(let x=X0+.25;x<X1-.3;x+=.5)BX(x+.12,top+.009,cy,.24,.004,.035,[214,206,150]);
+    for(const s of [-1,1]){const ez=cy+s*(Wd/2-.08);BX(cx,top+.02,ez,L,.04,.17,[172,168,158]);BX(cx,top-.12,cy+s*(Wd/2-.3),L,.12,.1,conc2);
+      for(let x=X0+.1;x<=X1-.1;x+=.34)BX(x,top+.1,ez+s*.06,.028,.14,.028,steel);
+      BX(cx,top+.17,ez+s*.06,L,.026,.03,steel);BX(cx,top+.1,ez+s*.06,L,.016,.016,steel);
+      for(const x of [X0+.15,X1-.15]){addGeo(A,new THREE.CylinderGeometry(.016,.02,.42,6),[70,72,74],M4(x,top+.25,ez+s*.07));BX(x,top+.45,ez-s*.06,.04,.02,.18,[70,72,74]);BX(x,top+.44,ez-s*.14,.07,.03,.05,[240,226,170])}}
+    const span=b.x1-b.x0+1,np=Math.max(1,Math.round(span/3));
+    for(let k=1;k<=np;k++){const x=X0+L*k/(np+1);BX(x,top-.16,cy,.16,.08,Wd-.1,conc2);for(const s of [-.3,.3]){const z=cy+s*(Wd-.4);addGeo(A,new THREE.CylinderGeometry(.09,.11,.5,10),conc2,M4(x,top-.45,z))}}
+    for(const x of [X0,X1]){BX(x,top-.2,cy,.34,.34,Wd+.3,[118,114,104]);for(const s of [-1,1])BX(x,top+.04,cy+s*(Wd/2+.12),.36,.12,.08,[134,130,120])}}
   for(const A of AC.values()){const dm=new THREE.Mesh(mkGeo(A),S3.matV);dm.castShadow=true;dm.receiveShadow=true;dm.userData.own=true;sc.add(dm)}
   S3.fm=Fm.slice();S3.statDirty=false;S3.statK=new Set();S3.statCh=new Map();buildStatics();
   S3.texT=0;G.texDirty=false;if(DG){DG.fill(0);DM.fill(0)}
@@ -1876,7 +1913,7 @@ function sync3D(dt){
   // unidades
   const live=new Set();const IC=S3.ic;IC.clear();
   for(const u of G.units){if(u.dead)continue;
-    if(u.cls==='inf'){if(!visibleToPlayer(u))continue;let g=GH(u.x,u.y);if(u.inHouse>=0){const h=G.objs[u.inHouse];if(!h||!h.cut)continue;g=baseY(h)+(h.kind==='bunker'?.18:3.1/ZW)}const f=Fm[tix(u.x,u.y)];const pose=u.wounded?'w':u.prone?'p':'s';const fr=pose==='s'&&u.moving?1+((u.anim/.62*8)|0)%8:0;const lod=cam.z>=1.5?'hi':'lo';
+    if(u.cls==='inf'){if(!visibleToPlayer(u))continue;let g=GH(u.x,u.y);if(u.inHouse>=0){const h=G.objs[u.inHouse];if(!h||!h.cut)continue;g=baseY(h)+(h.kind==='bunker'?.18:3.1/ZW)}const f=Fm[tix(u.x,u.y)];const pose=u.wounded?'w':u.prone?'p':'s';const fr=pose==='s'&&u.moving?1+((u.wph||0)*12|0)%12:0;const lod=cam.z>=1.5?'hi':'lo';
       _p3.set(u.x,g+(u.inHouse>=0?0:f===5?-.2:(f===2||f===6)&&u.moving?.1:0),u.y);_q3.setFromAxisAngle(_Y3,-u.face);_m3.compose(_p3,_q3,_s3);
       const kb='B'+lod+u.type+pose+fr+u.team,kg='G'+u.type+pose+fr+u.team;
       let c=IC.get(kb)||0;let im=S3.inst.get(kb);if(!im||c>=im.userData.cap)im=growInst(kb,soldierBodyGeo(lod,u.type,pose,fr),c,S3.solMat[u.team]);im.setMatrixAt(c,_m3);IC.set(kb,c+1);
@@ -1884,7 +1921,7 @@ function sync3D(dt){
     live.add(u.id);let o=S3.U.get(u.id);if(!o){o=mkUnit3(u);S3.U.set(u.id,o);S3.scene.add(o)}
     const vis=visibleToPlayer(u);o.visible=vis;if(!vis)continue;const g=GH(u.x,u.y);
     if(u.cls==='veh'){const ca=Math.cos(u.face),sa=Math.sin(u.face);const hf=GH(u.x+ca*.4,u.y+sa*.4),hb=GH(u.x-ca*.4,u.y-sa*.4),hl=GH(u.x-sa*.3,u.y+ca*.3),hr=GH(u.x+sa*.3,u.y-ca*.3);
-      o.position.set(u.x,Math.max(g,(hf+hb)/2)-.01-(Mm[tix(u.x,u.y)]===2?.03:0)-(u.stuck>0?.045+Math.sin(G.t*28)*.006:0),u.y);o.rotation.set(Math.atan2(hl-hr,.6),-u.face,Math.atan2(hf-hb,.8));if(o.userData.tur)o.userData.tur.rotation.y=-(u.tur-u.face)}
+      if(o.userData.ramp)o.userData.ramp.rotation.z=(u.ramp||0)*1.88;o.position.set(u.x,Math.max(g,(hf+hb)/2)-.01-(Mm[tix(u.x,u.y)]===2?.03:0)-(u.stuck>0?.045+Math.sin(G.t*28)*.006:0),u.y);o.rotation.set(Math.atan2(hl-hr,.6),-u.face,Math.atan2(hf-hb,.8));if(o.userData.tur)o.userData.tur.rotation.y=-(u.tur-u.face)}
     else{const ah=u.alt*HZ+(u.type==='heli'?Math.sin(u.anim*2)*1.5:Math.sin(u.anim*9)*.8);o.position.set(u.x,g+ah/ZW,u.y);o.rotation.y=-u.face;if(o.userData.rot)o.userData.rot.rotation.y+=dt*(u.type==='heli'?22:40)}}
   for(const [id,o] of S3.U)if(!live.has(id)){S3.scene.remove(o);disposeTree(o);S3.U.delete(id)}
   for(const [k,im] of S3.inst){const c=IC.get(k)||0;im.count=c;im.visible=c>0;if(c)im.instanceMatrix.needsUpdate=true}
@@ -2066,7 +2103,7 @@ function renderPanel(){
     h+=`<button class="b ${G.mode==='assault'?'on':''}" data-act="mode">${G.mode==='assault'?'Assalto':'Mover'}<small>toque p/ trocar</small></button>`;
     h+=`<button class="b" data-act="stop">Parar</button>`;
     if(G.sel.some(u=>UT[u.type].dig))h+=`<button class="b" data-act="dig">Cavar<small>trincheira</small></button>`;
-    {const ap=G.sel.filter(u=>UT[u.type].cap);if(ap.length){const n=ap.reduce((a,u)=>a+(u.cargo?u.cargo.length:0),0);h+=`<button class="b ${n?'go':''}" data-act="unload">Desembarcar<small>${n} a bordo</small></button>`;inf+=` · ${n}/${ap.length*UT.apc.cap} a bordo`}}
+    {const ap=G.sel.filter(u=>UT[u.type].cap);if(ap.length){const n=ap.reduce((a,u)=>a+(u.cargo?u.cargo.length:0),0);h+=`<button class="b ${n?'go':''}" data-act="unload">Desembarcar<small>${ap.some(u=>u.unloadQ)?'saindo…':n+' a bordo'}</small></button>`;inf+=` · ${n}/${ap.length*UT.apc.cap} a bordo`}}
     {const sm=G.sel.filter(u=>(UT[u.type].smoke||u.type==='rifle')&&!(u.smkCD>0));if(G.sel.some(u=>UT[u.type].smoke||u.type==='rifle'))h+=`<button class="b" data-act="smoke">Fumaça<small>${sm.length?'pronta':'recarregando'}</small></button>`}
     h+=`<button class="b" data-act="all">Todos</button><button class="b" data-act="desel">✕</button>`}
   else if(G.selB){const o=G.selB,B=BT[o.kind];inf=`<b>${B.name}</b> · <span id="bhp"></span>`;
