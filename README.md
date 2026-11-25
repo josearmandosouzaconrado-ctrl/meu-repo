@@ -65,4 +65,5 @@ Abrir com `#auto` no fim do endereço coloca a IA para jogar pelos dois lados (m
 - Tanque inimigo: modelo T-90 enviado pelo usuário (arquivo original em `assets/t90`), simplificado de 304 mil para cerca de 6,7 mil triângulos com [meshoptimizer](https://github.com/zeux/meshoptimizer), com a torre separada do casco.
 - Tanque do jogador: modelo M1 Abrams enviado pelo usuário (arquivos originais em `assets/abrams`), exportado do Blender e simplificado de 45 mil para cerca de 6,9 mil triângulos; a versão destruída vira a carcaça que fica no chão.
 - Fuzil dos fuzileiros: Colt M4A1 low poly enviado pelo usuário (arquivo original em `assets/m4a1`), simplificado de 7,8 mil para cerca de 600 triângulos.
+- Sons de fuzil, metralhadora e canhão: gravações enviadas pelo usuário (originais em `assets/sounds`), recortadas em tiros e rajadas; explosões, granadas e foguetes são sintetizados.
 - Motor 3D: [three.js](https://threejs.org) (MIT).
