@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0b1a2b" />
+<title>Ônibus Rio 3D</title>
+<link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- Tela de carregamento -->
+<div id="loading" class="screen">
+  <div class="logo">ÔNIBUS <b>RIO</b> 3D</div>
+  <div class="sub">Rio de Janeiro • Zona Norte • Zona Sul • Barra • Zona Rural</div>
+  <div class="bar"><div id="loadbar"></div></div>
+  <div id="loadtxt">Carregando...</div>
+</div>
+
+<!-- Menu principal -->
+<div id="menu" class="screen hidden">
+  <div class="logo">ÔNIBUS <b>RIO</b> 3D</div>
+  <div class="money-top">Saldo: <b id="menuMoney">R$ 0,00</b> • Nível <b id="menuLevel">1</b></div>
+  <div class="menu-cols">
+    <div class="panel">
+      <h3>Escolha a linha</h3>
+      <div id="lineList"></div>
+    </div>
+    <div class="panel">
+      <h3>Garagem — Pintura</h3>
+      <div id="liveryList"></div>
+      <h3>Opções</h3>
+      <label class="opt">Gráficos
+        <select id="optQuality"><option value="0">Baixo</option><option value="1" selected>Médio</option><option value="2">Alto</option></select>
+      </label>
+      <label class="opt">Direção
+        <select id="optSteer"><option value="wheel">Volante na tela</option><option value="buttons">Botões ◄ ►</option><option value="tilt">Inclinar celular</option></select>
+      </label>
+      <label class="opt">Trânsito
+        <select id="optTraffic"><option value="20">Leve</option><option value="40" selected>Normal</option><option value="70">Pesado</option></select>
+      </label>
+      <label class="opt">Som <input type="checkbox" id="optSound" checked /></label>
+    </div>
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div id="topbar">
+    <div id="lineName">Linha</div>
+    <div id="nextStop">Próximo ponto: —</div>
+    <div id="clock">08:00</div>
+    <div id="cash">R$ 0,00</div>
+    <div id="pax">👥 0/70</div>
+  </div>
+  <div id="toast"></div>
+  <canvas id="minimap" width="220" height="220"></canvas>
+  <div id="speedo"><div id="spd">0</div><div class="unit">km/h</div><div id="gear">D</div></div>
+  <div id="btnrow">
+    <button id="bPause">⏸</button>
+    <button id="bCam">🎥</button>
+    <button id="bDoor">🚪</button>
+    <button id="bHorn">📯</button>
+    <button id="bLight">💡</button>
+    <button id="bGear">D/R</button>
+  </div>
+  <div id="steerZone"><div id="wheel"><div class="spoke"></div></div></div>
+  <div id="steerBtns" class="hidden"><button id="bLeft">◄</button><button id="bRight">►</button></div>
+  <div id="pedals"><button id="bBrake">FREIO</button><button id="bGas">ACEL</button></div>
+  <div id="stopHint" class="hidden">Pare no ponto e abra as portas 🚪</div>
+</div>
+
+<!-- Pausa / resultado -->
+<div id="pause" class="screen hidden">
+  <div class="panel center">
+    <h2 id="pauseTitle">Pausado</h2>
+    <div id="pauseBody"></div>
+    <div class="row">
+      <button id="bResume" class="big">Continuar</button>
+      <button id="bMenu" class="big alt">Menu</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

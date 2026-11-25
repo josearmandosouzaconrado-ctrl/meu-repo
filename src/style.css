@@ -1,0 +1,80 @@
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1a2b; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #fff; touch-action: none; }
+#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+.hidden { display: none !important; }
+
+.screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20;
+  background: radial-gradient(ellipse at top, #16406b 0%, #0b1a2b 70%); padding: 12px env(safe-area-inset-right) 12px env(safe-area-inset-left); }
+#pause.screen { background: rgba(5, 12, 22, .78); }
+.logo { font-size: clamp(28px, 6vw, 54px); font-weight: 900; letter-spacing: 2px; text-shadow: 0 4px 0 #0006; }
+.logo b { color: #ffd23f; }
+.sub { opacity: .8; margin: 6px 0 18px; font-size: 14px; text-align: center; }
+.bar { width: min(420px, 80vw); height: 10px; background: #fff2; border-radius: 6px; overflow: hidden; }
+#loadbar { height: 100%; width: 0; background: linear-gradient(90deg, #2fb36b, #ffd23f); transition: width .2s; }
+#loadtxt { margin-top: 8px; font-size: 13px; opacity: .8; }
+
+.money-top { margin: 4px 0 10px; font-size: 15px; opacity: .9; }
+.money-top b { color: #ffd23f; }
+.menu-cols { display: flex; gap: 12px; width: min(980px, 100%); max-height: calc(100% - 90px); }
+.panel { background: #0008; border: 1px solid #ffffff22; border-radius: 14px; padding: 10px 14px; overflow-y: auto; flex: 1; }
+.panel.center { flex: 0 1 auto; width: min(520px, 92vw); text-align: center; }
+.panel h3 { margin: 6px 0 8px; font-size: 15px; color: #ffd23f; text-transform: uppercase; letter-spacing: 1px; }
+.line-card { display: flex; align-items: center; gap: 10px; background: #ffffff10; border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; cursor: pointer; border: 2px solid transparent; }
+.line-card:active, .line-card.sel { border-color: #ffd23f; }
+.line-card .num { min-width: 64px; text-align: center; font-weight: 900; font-size: 18px; padding: 6px 4px; border-radius: 8px; background: #b3121b; }
+.line-card .info { flex: 1; font-size: 13px; }
+.line-card .info b { font-size: 15px; display: block; }
+.line-card .tag { font-size: 11px; opacity: .75; }
+.line-card.locked { opacity: .45; }
+.livery { display: inline-flex; flex-direction: column; align-items: center; margin: 0 8px 8px 0; padding: 6px; border-radius: 10px; background: #ffffff10; border: 2px solid transparent; cursor: pointer; font-size: 11px; width: 82px; }
+.livery.sel { border-color: #ffd23f; }
+.livery .sw { width: 60px; height: 26px; border-radius: 6px; margin-bottom: 4px; border: 1px solid #fff5; }
+.opt { display: flex; justify-content: space-between; align-items: center; margin: 6px 0; font-size: 14px; }
+.opt select { background: #1b2b40; color: #fff; border: 1px solid #fff3; border-radius: 6px; padding: 4px 6px; font-size: 13px; }
+.row { display: flex; gap: 10px; justify-content: center; margin-top: 12px; }
+button { font-family: inherit; }
+button.big { background: #2fb36b; color: #fff; border: 0; border-radius: 10px; padding: 12px 22px; font-size: 17px; font-weight: 800; }
+button.big.alt { background: #45556b; }
+#pauseBody { font-size: 15px; line-height: 1.6; }
+#pauseBody .good { color: #6fe39b; } #pauseBody .bad { color: #ff7a7a; }
+
+/* HUD */
+#hud { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
+#hud button, #steerZone { pointer-events: auto; }
+#topbar { position: absolute; top: max(6px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: 70vw; }
+#topbar > div { background: #000a; padding: 5px 10px; border-radius: 8px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+#lineName { background: #b3121bcc !important; }
+#cash { color: #ffd23f; }
+#toast { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); background: #000c; padding: 8px 16px; border-radius: 10px; font-size: 15px; font-weight: 700; opacity: 0; transition: opacity .3s; white-space: nowrap; }
+#toast.show { opacity: 1; }
+#minimap { position: absolute; top: max(6px, env(safe-area-inset-top)); right: max(6px, env(safe-area-inset-right)); width: 150px; height: 150px; border-radius: 50%; border: 3px solid #fff8; background: #234; }
+#speedo { position: absolute; bottom: 150px; right: max(14px, env(safe-area-inset-right)); width: 92px; height: 92px; border-radius: 50%; background: #000b; border: 3px solid #ffd23f; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+#spd { font-size: 30px; font-weight: 900; line-height: 1; }
+#speedo .unit { font-size: 11px; opacity: .8; }
+#gear { font-size: 13px; font-weight: 800; color: #6fe39b; }
+#btnrow { position: absolute; top: max(6px, env(safe-area-inset-top)); left: max(6px, env(safe-area-inset-left)); display: grid; grid-template-columns: repeat(3, 46px); gap: 6px; }
+#btnrow button { width: 46px; height: 46px; border-radius: 12px; border: 1px solid #fff4; background: #000a; color: #fff; font-size: 20px; }
+#btnrow button.on { background: #ffd23f; color: #000; }
+#bGear { font-size: 13px !important; font-weight: 800; }
+#steerZone { position: absolute; left: max(14px, env(safe-area-inset-left)); bottom: 14px; width: 190px; height: 190px; display: flex; align-items: center; justify-content: center; }
+#wheel { width: 170px; height: 170px; border-radius: 50%; border: 16px solid #222c; box-shadow: 0 0 0 3px #fff5 inset, 0 0 0 2px #fff4; position: relative; background: radial-gradient(circle, #0000 52%, #0004 53%); }
+#wheel .spoke { position: absolute; left: 50%; top: 50%; width: 120px; height: 14px; margin: -7px 0 0 -60px; background: #222c; border-radius: 7px; }
+#wheel .spoke::after { content: ""; position: absolute; left: 50%; top: 0; width: 14px; height: 60px; margin-left: -7px; background: #222c; border-radius: 7px; }
+#wheel::after { content: ""; position: absolute; top: -12px; left: 50%; margin-left: -4px; width: 8px; height: 8px; border-radius: 50%; background: #ffd23f; }
+#steerBtns { position: absolute; left: max(14px, env(safe-area-inset-left)); bottom: 18px; display: flex; gap: 12px; }
+#steerBtns button { pointer-events: auto; width: 86px; height: 86px; border-radius: 18px; border: 2px solid #fff6; background: #000a; color: #fff; font-size: 34px; }
+#pedals { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: 14px; display: flex; gap: 10px; align-items: flex-end; }
+#pedals button { border: 2px solid #fff6; color: #fff; font-weight: 900; font-size: 13px; border-radius: 14px; }
+#bBrake { width: 92px; height: 84px; background: #a3262acc; }
+#bGas { width: 78px; height: 120px; background: #2b8f53cc; }
+#pedals button.press, #steerBtns button.press { filter: brightness(1.5); transform: scale(.96); }
+#stopHint { position: absolute; top: 96px; left: 50%; transform: translateX(-50%); background: #ffd23fe6; color: #000; padding: 8px 14px; border-radius: 10px; font-weight: 800; font-size: 14px; }
+
+@media (max-height: 420px) {
+  #steerZone { width: 150px; height: 150px; } #wheel { width: 138px; height: 138px; border-width: 13px; }
+  #speedo { bottom: 140px; width: 76px; height: 76px; } #spd { font-size: 24px; }
+  #bGas { height: 104px; } #bBrake { height: 72px; }
+  #minimap { width: 120px; height: 120px; }
+  #topbar > div { font-size: 11px; padding: 4px 7px; }
+  .menu-cols { max-height: calc(100% - 70px); }
+}

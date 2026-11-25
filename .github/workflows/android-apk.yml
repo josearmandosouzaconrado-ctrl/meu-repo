@@ -1,0 +1,63 @@
+name: Gerar APK Android
+
+on:
+  push:
+    branches: ['**']
+    paths-ignore: ['README.md']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Compilar o jogo (web)
+        run: npm run build
+
+      - name: Sincronizar com o projeto Android (Capacitor)
+        run: npx cap sync android
+
+      - name: Compilar APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Renomear APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk OnibusRio3D.apk
+
+      - name: Enviar APK como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: OnibusRio3D-apk
+          path: OnibusRio3D.apk
+
+      - name: Publicar na página de Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-v1.0.${{ github.run_number }}
+          name: Ônibus Rio 3D v1.0.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          files: OnibusRio3D.apk
+          body: |
+            APK do jogo **Ônibus Rio 3D** (Android 5.1+).
+            Baixe o arquivo `OnibusRio3D.apk` abaixo, abra no celular e permita "instalar apps de fontes desconhecidas".

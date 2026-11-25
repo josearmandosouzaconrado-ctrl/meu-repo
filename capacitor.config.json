@@ -1,0 +1,6 @@
+{
+  "appId": "br.com.onibusrio3d.jogo",
+  "appName": "Ônibus Rio 3D",
+  "webDir": "dist",
+  "android": { "backgroundColor": "#0b1a2b" }
+}
