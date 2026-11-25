@@ -661,7 +661,7 @@ function acquire(u){
 function fire(u,w,tg,slot){
   const ap=aimPoint(tg,u);const d=Math.hypot(ap.x-u.x,ap.y-u.y);
   u.ammo[slot]--;u.cd[slot]=w.rof*(.85+R()*.3)*(u.supp>60?1.7:1);u.flash=.07;
-  let p=w.acc*(1-.35*d/w.range)*(u.moving?(u.cls==='inf'?.5:.72):1)*(1-u.supp/260);let cov=0;
+  let p=w.acc*(1-.35*d/w.range)*(u.moving?(u.cls==='inf'?(u.gait==='glide'?.82:.45):.72):1)*(1-u.supp/260);let cov=0;
   if(tg.cls){if(tg.cls==='inf')cov=coverAt(tg,u);p*=1-cov*.5;if(tg.prone)p*=.7;if(tg.type==='drone')p*=.45;if(tg.moving&&tg.cls!=='inf')p*=.85}
   p=clamp(p,.03,.97);
   if(w.proj==='shell'){const ca=Math.cos(u.tur),sa=Math.sin(u.tur);for(let k=0;k<3;k++)G.parts.push(puff('white',u.x+ca*(.9+k*.12),u.y+sa*(.9+k*.12),12,{vx:ca*(.6+R()),vy:sa*(.6+R()),life:1.4,s:5,gr:9,a0:.45,drag:1.5,vh:4}))}
@@ -722,7 +722,7 @@ function turnTo(a,b,step){let d=b-a;while(d>Math.PI)d-=6.2832;while(d<-Math.PI)d
 function angDiff(a,b){let d=b-a;while(d>Math.PI)d-=6.2832;while(d<-Math.PI)d+=6.2832;return Math.abs(d)}
 function speedMul(u){
   const T=UT[u.type];if(u.cls==='air')return 1;const i=tix(u.x,u.y);const c=tcost(i,T.kind||0);let m=c>0?1/c:.5;
-  if(u.cls==='inf'){if(u.prone)m*=.45;else if(u.supp>60)m*=.7}else if(u.cls==='veh'&&Mm[i])m*=Mm[i]===2?.55:.85;return m}
+  if(u.cls==='inf'){if(u.prone)m*=.32;else if(u.gait==='glide')m*=.4;else if(u.gait==='rush')m*=1.12}else if(u.cls==='veh'&&Mm[i])m*=Mm[i]===2?.55:.85;return m}
 function stickUnit(u){u.stuck=u.stuckMax=6+R()*8;for(let k=0;k<4;k++)mudFx(u);
   if(u.team===0&&!G.demo&&G.t-(G.lastMud||-99)>6){G.lastMud=G.t;toast(`${UT[u.type].name} atolado na lama!`,'r');radio(u,pick(['Atolamos! Atolamos!','Estamos presos na lama!','Atolado, preciso de reboque!']),true);alertPlayer&&alertPlayer(u.x,u.y)}}
 function mudFx(u){const ca=Math.cos(u.face),sa=Math.sin(u.face);for(const s of [-1,1]){const x=u.x-ca*.45-sa*.25*s,y=u.y-sa*.45+ca*.25*s;
@@ -782,13 +782,14 @@ let radioTm=0;
 function radio(u,txt,force){if(!G||G.demo)return;if(u&&u.team!==0)return;const now=performance.now();if(!force&&now-(G.radioAt||0)<1400)return;G.radioAt=now;
   const el=$('radio');$('radioTxt').innerHTML=`<b>${callsign(u)}</b> · ${txt}`;el.hidden=false;clearTimeout(radioTm);radioTm=setTimeout(()=>{el.hidden=true},2800);SND.radio&&SND.radio()}
 function moveAlong(u,dt){
+  if(u.downT>0){u.moving=false;return}
   if(u.unloadQ||(UT[u.type].cap&&(u.ramp||0)>.05&&!u.rampOpen)){u.moving=false;return}if(UT[u.type].cap&&u.rampOpen&&u.path){u.waitMv=(u.waitMv||0)+dt;if(u.waitMv>6){for(const q of G.units)if(q.boardA===u.id){q.boardA=null;q.ramping=false}}u.rampOpen=false;u.closeT=0;u.moving=false;return}u.waitMv=0;
   if(u.stuck>0){u.moving=false;u.mudT=(u.mudT||0)+dt;if(u.mudT>.22){u.mudT=0;mudFx(u)}return}
   const wp=u.path[u.pi];const dx=wp[0]-u.x,dy=wp[1]-u.y,d=Math.hypot(dx,dy);const T=UT[u.type];
   const ang=Math.atan2(dy,dx);
   if(u.cls==='veh'){u.face=turnTo(u.face,ang,2.6*dt);if(angDiff(u.face,ang)>.9&&d>.15){u.moving=true;return}}
   else if(u.cls==='inf'&&!u.target)u.face=ang;else if(u.cls==='air'&&!u.target)u.face=turnTo(u.face,ang,4*dt);
-  const sp=T.spd*speedMul(u)*dt;u.moving=true;if(u.cls==='inf')u.wph=((u.wph||0)+Math.min(d,sp)/.62)%1;
+  const sp=T.spd*speedMul(u)*dt;u.moving=true;if(u.cls==='inf')u.wph=((u.wph||0)+Math.min(d,sp)/(u.prone?.3:u.gait==='glide'?.2:.62))%1;
   if(d<=sp){u.x=wp[0];u.y=wp[1];u.pi++;if(u.pi>=u.path.length){u.path=null;u.moving=false}}
   else{u.x+=dx/d*sp;u.y+=dy/d*sp}
   if(u.cls==='veh'){u.trk=(u.trk||0)+Math.min(d,sp);if(u.trk>.12){u.trk=0;paintTracks(u)}
@@ -808,7 +809,14 @@ function updUnit(u,dt){
   const T=UT[u.type];u.flash=Math.max(0,u.flash-dt);u.anim+=dt;
   if(u.wounded){u.woundT-=dt;if(u.woundT<=0)killUnit(u);return}
   u.supp=Math.max(0,u.supp-(u.cls==='inf'?14:25)*dt);
-  if(u.cls==='inf'){u.forceProne=Math.max(0,u.forceProne-dt);u.prone=u.supp>32||u.forceProne>0||u.dig}
+  if(u.cls==='inf'){u.forceProne=Math.max(0,u.forceProne-dt);
+    const mv=(!!u.path||!!u.pq)&&!u.dig&&!u.ramping&&u.inHouse<0;
+    if(u.supp>25||G.t-u.lastHit<1)u.ufT=7;else if(u.ufT>0)u.ufT-=dt;
+    if(mv&&u.ufT>0&&u.forceProne<=0){// "estou de pé, ele me vê, estou no chão": corre 3-5 s, deita 1,5-3 s, repete
+      if(u.downT>0){u.downT-=dt;u.prone=true}else{u.prone=false;u.rushT=(u.rushT||0)+dt;if(!u.rushLen)u.rushLen=3+R()*2;if(u.rushT>u.rushLen){u.rushT=0;u.rushLen=3+R()*2;u.downT=1.5+R()*1.5}}
+      u.gait='rush'}
+    else{u.downT=0;u.rushT=0;u.prone=u.supp>32||u.forceProne>0||u.dig;
+      u.gait=u.ramping||(T.medic&&u.patient)||u.supp>12||G.t-u.lastHit<3?'rush':(u.target||u.ft)&&T.w&&!T.w.proj?'glide':'run'}}
   if(u.dive){const nx=u.x+u.dive.vx*dt,ny=u.y+u.dive.vy*dt;if(tcost(tix(nx,ny),0)>=0){u.x=nx;u.y=ny}u.dive.t-=dt;if(u.dive.t<=0)u.dive=null;return}
   if(u.dig){if(u.path)u.dig=false;else{u.digT+=dt;if(R()<dt*4)G.parts.push({x:u.x+(R()-.5)*.4,y:u.y+(R()-.5)*.4,h:2,vx:0,vy:0,vh:20,life:.5,max:.5,k:'dust',s:2});
       if(u.digT>=6){const i=tix(u.x,u.y);if(Fm[i]===0||Fm[i]===4){Fm[i]=5;paintTrench(i%NX,(i/NX)|0)}u.dig=false}}}
@@ -1499,14 +1507,19 @@ function solvePose(type,pose,fr){
   // devolve as transformações de cada osso e os pontos para equipamento
   const q=(x,y,z)=>new THREE.Quaternion().setFromEuler(new THREE.Euler(x,y,z,'YXZ'));
   let pelvQ,pelvP,chestQl=q(0,0,0),headQl=q(0,0,0),hands,feet,poleA=[V3(-1,-.6,-.3),V3(.4,-1,.1)],poleK=V3(0,.2,1);
-  const walk=pose==='s'&&fr>0,ph=walk?(fr-1)/12:0;
+  const glide=pose==='s'&&fr>=13,walk=pose==='s'&&fr>0&&fr<13,crawl=pose==='p'&&fr>0,ph=glide?(fr-13)/12:walk?(fr-1)/12:crawl?(fr-1)/8:0;
+  // avanço atirando: joelhos dobrados, passos curtos rolando calcanhar-ponta, pé quase sem subir
+  const footGlide=(p)=>{p=((p%1)+1)%1;const A=.14;if(p<.6){const t=p/.6;return [A-2*A*t,0]}const t=(p-.6)/.4,e=t*t*(3-2*t);return [-A+2*A*e,Math.sin(Math.PI*t)*.045]};
   // corrida: cada pé fica 40% do ciclo apoiado (vai de +A a -A) e 60% no ar (volta levantando o joelho)
   const footRun=(p)=>{p=((p%1)+1)%1;const A=.27;if(p<.4){const t=p/.4;return [A-2*A*t,0]}const t=(p-.4)/.6,e=t*t*(3-2*t);return [-A+2*A*e,Math.sin(Math.PI*t)*.15+Math.max(0,.35-t)*.12]};
   if(pose==='s'){
     if(walk){const tw=Math.sin(ph*6.283);const py=.452+.024*(.5-.5*Math.cos(2*6.283*(ph-.2)));pelvQ=q(.2,.12+tw*.1,tw*.03);pelvP=V3(0,py,0);chestQl=q(.04,-.1-tw*.14,0);headQl=q(-.22,-.02+tw*.06,0);
       const fR=footRun(ph),fL=footRun(ph+.5);feet=[V3(-.085,.065+fR[1],fR[0]),V3(.085,.065+fL[1],fL[0])];poleK=V3(0,.1,1)}
+    else if(glide){const sw=Math.sin(ph*6.283);pelvQ=q(.12,.26,sw*.015);pelvP=V3(0,.43-.004*Math.abs(Math.cos(ph*6.283*2)),0);chestQl=q(.02,-.24,0);headQl=q(-.02,-.04,0);
+      const fR=footGlide(ph),fL=footGlide(ph+.5);feet=[V3(-.11,.065+fR[1],fR[0]-.02),V3(.1,.065+fL[1],fL[0]+.02)];poleK=V3(0,.1,1)}
     else{pelvQ=q(.04,.28,0);pelvP=V3(0,.485,0);chestQl=q(.06,-.24,0);headQl=q(-.05,-.05,0);feet=[V3(-.1,.065,-.1),V3(.07,.065,.11)]}}
-  else if(pose==='p'){pelvQ=q(Math.PI/2,0,0);pelvP=V3(0,.115,-.05);headQl=q(-.75,0,0);feet=[V3(-.12,.07,-.5),V3(.1,.07,-.5)];poleK=V3(0,-1,0)}
+  else if(pose==='p'){const sw=crawl?Math.sin(ph*6.283):0,kR=Math.max(0,sw),kL=Math.max(0,-sw);pelvQ=q(Math.PI/2,sw*.08,sw*.05);pelvP=V3(sw*.015,.115,-.05);headQl=q(-.75,-sw*.05,0);
+    feet=[V3(-.12-kR*.13,.07,-.5+kR*.2),V3(.1+kL*.13,.07,-.5+kL*.2)];poleK=crawl?V3(0,-.4,0):V3(0,-1,0)}
   else{pelvQ=q(-Math.PI/2,0,0);pelvP=V3(0,.1,0);headQl=q(.3,.4,0);feet=[V3(-.17,.07,.44),V3(.12,.07,.43)];poleK=V3(0,1,0);poleA=[V3(0,1,0),V3(0,1,0)]}
   const T={};const restOf=k=>vA(RJ[k]);
   const xf=(Q,rp,pp)=>v=>v.clone().sub(rp).applyQuaternion(Q).add(pp);
@@ -1518,7 +1531,7 @@ function solvePose(type,pose,fr){
   const fwd=V3(0,0,1).applyQuaternion(chestQ),upv=V3(0,1,0).applyQuaternion(chestQ);
   let butt,muz,hR,hL,tube=null;
   if(pose==='s'){
-    const aimDir=walk?V3(.03,-.2,1).normalize():V3(.05,-.04,1).normalize();butt=walk?SR.clone().add(V3(.04,-.06,.05)):SR.clone().add(V3(.035,-.03,.05));
+    const aimDir=walk?V3(.03,-.2,1).normalize():glide?V3(.04,-.02,1).normalize():V3(.05,-.04,1).normalize();butt=walk?SR.clone().add(V3(.04,-.06,.05)):SR.clone().add(V3(.035,-.03,.05));
     if(type==='at'){tube=[SR.clone().add(V3(.0,.04,-.2)),SR.clone().add(V3(.02,.06,.38))];hR=SR.clone().add(V3(.03,-.03,.12));hL=SR.clone().add(V3(.06,.0,.26))}
     else if(type==='medic'){butt=null;const sw=walk?Math.sin(ph*6.283):0;hR=SR.clone().add(V3(-.02,-.2,.1+sw*.16));hL=SL.clone().add(V3(.02,-.2,.06-sw*.16))}
     else{const len=type==='mg'?.62:.55;if(type==='mg'){butt=SR.clone().add(V3(.04,-.14,.02));}muz=butt.clone().add(aimDir.clone().multiplyScalar(len));
@@ -1526,7 +1539,7 @@ function solvePose(type,pose,fr){
   else if(pose==='p'){butt=SR.clone().add(V3(.04,-.02,.06));const dir=V3(.08,-.02,1).normalize();
     if(type==='at')tube=[SR.clone().add(V3(.02,.03,-.15)),SR.clone().add(V3(.04,.03,.45))];
     else if(type!=='medic')muz=butt.clone().add(dir.clone().multiplyScalar(type==='mg'?.62:.55));
-    hR=SR.clone().add(V3(.05,-.04,.18));hL=SL.clone().add(V3(-.12,-.04,.32));poleA=[V3(-1,-1,0),V3(1,-1,0)]}
+    {const sw=crawl?Math.sin(ph*6.283):0;hR=SR.clone().add(V3(.05,-.04,.18+sw*.06));hL=SL.clone().add(V3(-.12,-.04,.32-sw*.1))}poleA=[V3(-1,-1,0),V3(1,-1,0)]}
   else{hR=SR.clone().add(V3(-.3,-.06,-.02));hL=SL.clone().add(V3(.28,-.06,.1))}
   const la=vA(RJ.eR).distanceTo(vA(RJ.sR)),lb=vA(RJ.wR).distanceTo(vA(RJ.eR));
   const arm=(S,Hd,pole,ks,ke,kw)=>{const [E,W]=ik(S,Hd,la,lb,pole);const rs=restOf(ks),re=restOf(ke),rw=restOf(kw);
@@ -1913,7 +1926,7 @@ function sync3D(dt){
   // unidades
   const live=new Set();const IC=S3.ic;IC.clear();
   for(const u of G.units){if(u.dead)continue;
-    if(u.cls==='inf'){if(!visibleToPlayer(u))continue;let g=GH(u.x,u.y);if(u.inHouse>=0){const h=G.objs[u.inHouse];if(!h||!h.cut)continue;g=baseY(h)+(h.kind==='bunker'?.18:3.1/ZW)}const f=Fm[tix(u.x,u.y)];const pose=u.wounded?'w':u.prone?'p':'s';const fr=pose==='s'&&u.moving?1+((u.wph||0)*12|0)%12:0;const lod=cam.z>=1.5?'hi':'lo';
+    if(u.cls==='inf'){if(!visibleToPlayer(u))continue;let g=GH(u.x,u.y);if(u.inHouse>=0){const h=G.objs[u.inHouse];if(!h||!h.cut)continue;g=baseY(h)+(h.kind==='bunker'?.18:3.1/ZW)}const f=Fm[tix(u.x,u.y)];const pose=u.wounded?'w':u.prone?'p':'s';const fr=!u.moving?0:pose==='s'?(u.gait==='glide'?13:1)+((u.wph||0)*12|0)%12:pose==='p'?1+((u.wph||0)*8|0)%8:0;const lod=cam.z>=1.5?'hi':'lo';
       _p3.set(u.x,g+(u.inHouse>=0?0:f===5?-.2:(f===2||f===6)&&u.moving?.1:0),u.y);_q3.setFromAxisAngle(_Y3,-u.face);_m3.compose(_p3,_q3,_s3);
       const kb='B'+lod+u.type+pose+fr+u.team,kg='G'+u.type+pose+fr+u.team;
       let c=IC.get(kb)||0;let im=S3.inst.get(kb);if(!im||c>=im.userData.cap)im=growInst(kb,soldierBodyGeo(lod,u.type,pose,fr),c,S3.solMat[u.team]);im.setMatrixAt(c,_m3);IC.set(kb,c+1);
