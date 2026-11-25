@@ -627,17 +627,21 @@ function los(a,b){
     if(SMK&&SMK[i]){dens+=.45;if(dens>=1)return false}}
   return true}
 let CF_TEAM=0;
+let CF_REC=null;
 function castFrom(v,x,y,eye,r,skip){
-  v[tix(x,y)]=1;const n=Math.ceil(r*7);
+  v[tix(x,y)]=1;const n=Math.ceil(r*7);const rec=CF_REC;
   for(let k=0;k<n;k++){const a=k/n*6.2832,dx=Math.cos(a),dy=Math.sin(a);let mx=-1e9,dens=0;
     for(let d=.5;d<=r;d+=.5){const px=x+dx*d,py=y+dy*d;if(px<0||py<0||px>=NX||py>=NY)break;const i=idx(px|0,py|0);const gh=Hm[i];
-      if((gh+.5-eye)/d>=mx-.002&&!(CM[i]&&CM[i]-1!==CF_TEAM&&d>2.6))v[i]=1;const s2=(gh-eye)/d;if(s2>mx)mx=s2;
-      const f=Fm[i];if(f===3||f===7){v[i]=1;if(eye<gh+2.2&&OB[i]!==skip)break}
+      if((gh+.5-eye)/d>=mx-.002&&!(CM[i]&&CM[i]-1!==CF_TEAM&&d>2.6)){v[i]=1;if(rec)rec.push(i)}const s2=(gh-eye)/d;if(s2>mx)mx=s2;
+      const f=Fm[i];if(f===3||f===7){v[i]=1;if(rec)rec.push(i);if(eye<gh+2.2&&OB[i]!==skip)break}
       if(f===1&&eye-gh<2){dens+=.17;if(dens>=1)break}
       if(SMK&&SMK[i]&&d>.9){dens+=.45;if(dens>=1)break}}}}
 function computeVis(team){
   const v=G.vis[team];v.fill(0);CF_TEAM=team;
-  for(const u of G.units){if(u.team!==team||u.dead)continue;castFrom(v,u.x,u.y,eyeOf(u),(u.type==='at'&&u.team===0?12:UT[u.type].sight)*(u.wounded?.3:1),u.inHouse)}
+  const smoky=G.smokes&&G.smokes.length>0;
+  for(const u of G.units){if(u.team!==team||u.dead)continue;const eye=eyeOf(u),r=(u.type==='at'&&u.team===0?12:UT[u.type].sight)*(u.wounded?.3:1),ti=tix(u.x,u.y);const c=u.visC;
+    if(c&&c.ti===ti&&Math.abs(c.eye-eye)<.05&&c.r===r&&c.h===u.inHouse&&G.t-c.t<3&&!(smoky&&G.smokes.some(s=>Math.hypot(s.x-u.x,s.y-u.y)<r+3))){v[ti]=1;const L=c.list;for(let k=0;k<L.length;k++)v[L[k]]=1;continue}
+    CF_REC=[];castFrom(v,u.x,u.y,eye,r,u.inHouse);u.visC={ti,eye,r,h:u.inHouse,t:G.t,list:Int32Array.from(CF_REC)};CF_REC=null}
   for(const o of G.objs){if(!o.alive||o.team!==team)continue;castFrom(v,o.cx,o.cy,Hm[tix(o.cx,o.cy)]+(BT[o.kind].eye||1.6),BT[o.kind].sight,o.kind==='tower'?o.id:-9)}
   for(const d of G.depots){if(d.owner===team)castFrom(v,d.x,d.y,Hm[tix(d.x,d.y)]+.8,5)}
 }
@@ -1253,8 +1257,8 @@ function P(x,y,h){return [W2+((x-y)*TW2-cam.x)*cam.z,H2+((x+y)*TH2-(h||0)-GH(x,y
 function s2w0(sx,sy){const ix=(sx-W2)/cam.z+cam.x,iy=(sy-H2)/cam.z+cam.y;return [(ix/TW2+iy/TH2)/2,(iy/TH2-ix/TW2)/2]}
 function s2w(sx,sy){let w=s2w0(sx,sy);for(let k=0;k<4;k++){const g=GH(clamp(w[0],0,NX),clamp(w[1],0,NY))*ZW*cam.z;w=s2w0(sx,sy+g)}return w}
 function camTo(x,y){cam.x=(x-y)*TW2;cam.y=(x+y)*TH2;clampCam()}
-function clampCam(){cam.x=clamp(cam.x,-NY*TW2,NX*TW2);cam.y=clamp(cam.y,0,(NX+NY)*TH2);cam.z=clamp(cam.z,.32,3.2)}
-function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;W2=W/2;H2=H/2;cv.width=W*DPR|0;cv.height=H*DPR|0;if(S3.r)S3.r.setSize(W,H,false);
+function clampCam(){cam.moved=true;cam.x=clamp(cam.x,-NY*TW2,NX*TW2);cam.y=clamp(cam.y,0,(NX+NY)*TH2);cam.z=clamp(cam.z,.32,3.2)}
+function resize(){DPR=Math.min(1.5,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;W2=W/2;H2=H/2;cv.width=W*DPR|0;cv.height=H*DPR|0;if(S3.r)S3.r.setSize(W,H,false);
   $('rot').hidden=!(G&&!G.demo&&H>W&&!G.rotOk)}
 window.addEventListener('resize',resize);
 
@@ -2114,7 +2118,7 @@ function makeDetail(){const n=256,d=new Uint8Array(n*n*4);const r=mulberry32(99)
 function init3D(){
   if(S3.r)return true;if(!window.THREE)return false;
   try{S3.r=new THREE.WebGLRenderer({canvas:$('gl'),antialias:true,powerPreference:'high-performance'})}catch(e){return false}
-  const r=S3.r;r.shadowMap.enabled=true;r.shadowMap.type=THREE.PCFSoftShadowMap;S3.pr=Math.min(2,window.devicePixelRatio||1);r.setPixelRatio(S3.pr);
+  const r=S3.r;r.shadowMap.enabled=true;r.shadowMap.type=THREE.PCFSoftShadowMap;S3.pr=Math.min(1.5,window.devicePixelRatio||1);r.setPixelRatio(S3.pr);
   S3.scene=new THREE.Scene();S3.cam=new THREE.OrthographicCamera(-1,1,1,-1,1,400);
   S3.sun=new THREE.DirectionalLight(0xffffff,1);S3.sun.castShadow=true;S3.sun.shadow.mapSize.set(2048,2048);S3.sun.shadow.bias=-.0004;S3.sun.shadow.normalBias=.02;
   S3.hemi=new THREE.HemisphereLight(0xffffff,0x444444,.6);
@@ -2129,6 +2133,7 @@ function init3D(){
   S3.U=new Map();S3.O=new Map();S3.inst=new Map();S3.ic=new Map();initSoldierAsset();
   return true}
 function disposeTree(o){o.traverse(c=>{if(c.isMesh&&c.userData.own){c.geometry.dispose();if(c.material&&c.userData.ownMat)c.material.dispose()}})}
+function freeze(o){o.updateMatrix();o.matrixAutoUpdate=false;o.updateMatrixWorld(true);o.traverse(c=>{if(c!==o){c.updateMatrix();c.matrixAutoUpdate=false}})}
 function build3D(){
   const sc=S3.scene,B=BIOMES[G.biome];
   for(const c of sc.children.slice()){sc.remove(c);disposeTree(c)}
@@ -2225,6 +2230,7 @@ function build3D(){
   for(const A of AC.values()){const dm=new THREE.Mesh(mkGeo(A),S3.matV);dm.castShadow=true;dm.receiveShadow=true;dm.userData.own=true;sc.add(dm)}
   S3.fm=Fm.slice();S3.statDirty=false;S3.statK=new Set();S3.statCh=new Map();buildStatics();
   S3.texT=0;G.texDirty=false;if(DG){DG.fill(0);DM.fill(0)}
+  for(const c of sc.children)if(c!==S3.sun&&c!==S3.sun.target&&c!==S3.hemi)freeze(c);
   fog3D()}
 function buildStatics(){
   const all=!S3.statK.size,keys=[];if(all){for(let y=0;y<NY;y+=32)for(let x=0;x<NX;x+=32)keys.push((y/32)*100+x/32)}else keys.push(...S3.statK);S3.statK.clear();
@@ -2243,7 +2249,7 @@ function buildStatChunk(key){
     else{trenchGeo(A,x,y);if(RF[idx(x,y)]){const wd=[198,178,140];for(const [a,b] of [[0,0],[1,0],[0,1],[1,1]])addGeo(A,new THREE.CylinderGeometry(.018,.022,.36,5),[150,120,84],M4(x+a,g+.12,y+b));
       for(let k=-2;k<=2;k++){addGeo(A,new THREE.BoxGeometry(1.35,.022,.022),wd,M4(cx+k*.2,g+.29,cy,Math.PI/4));addGeo(A,new THREE.BoxGeometry(1.35,.022,.022),wd,M4(cx+k*.2,g+.31,cy,-Math.PI/4))}
       for(const s2 of [-1,1])addGeo(A,new THREE.BoxGeometry(1.02,.03,.03),[168,140,100],M4(cx,g+.27,cy+s2*.5))}}}
-  if(!A.p.length)return;const m=new THREE.Mesh(mkGeo(A),S3.matV);m.castShadow=true;m.receiveShadow=true;m.userData.own=true;S3.scene.add(m);S3.statCh.set(key,m)}
+  if(!A.p.length)return;const m=new THREE.Mesh(mkGeo(A),S3.matV);m.castShadow=true;m.receiveShadow=true;m.userData.own=true;S3.scene.add(m);freeze(m);S3.statCh.set(key,m)}
 function baseY(o){let m=1e9;for(const [a,b] of [[o.x0,o.y0],[o.x0+o.w,o.y0],[o.x0,o.y0+o.h],[o.x0+o.w,o.y0+o.h],[o.cx,o.cy]])m=Math.min(m,GH(a,b));return m}
 function objMesh(o,state){
   let parts,pal;
@@ -2278,8 +2284,8 @@ function syncCam(){
   const shc=sun.shadow.camera;shc.left=-span;shc.right=span;shc.top=span;shc.bottom=-span;shc.near=1;shc.far=200;shc.updateProjectionMatrix()}
 function sync3D(dt){
   // mudanças de terreno
-  const fm=S3.fm;let stat=false;
-  for(let i=0;i<NN;i++){const a=fm[i],b=Fm[i];if(a===b)continue;
+  const fm=S3.fm;let stat=false;S3.fmT=(S3.fmT||0)-dt;const scan=S3.fmT<=0;if(scan)S3.fmT=.2;
+  if(scan)for(let i=0;i<NN;i++){const a=fm[i],b=Fm[i];if(a===b)continue;
     if(b!==0&&b!==1&&S3.gcPick&&S3.gcPick.has(i)){for(const [m,k] of S3.gcPick.get(i)){m.setMatrixAt(k,new THREE.Matrix4().makeScale(0,0,0));m.instanceMatrix.needsUpdate=true}S3.gcPick.delete(i)}
     if(a===1){const p=S3.treePick.get(i);if(p){const m=S3.treeM.get(p[0]);m.setMatrixAt(p[1],new THREE.Matrix4().makeScale(0,0,0));m.instanceMatrix.needsUpdate=true}}
     if(a===2||a===5||a===6||a===8||a===9||a===13||b===2||b===5||b===6||b===8||b===9||b===13){stat=true;const x=i%NX,y=(i/NX)|0;for(const [dx,dy] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]]){const xx=x+dx,yy=y+dy;if(inb(xx,yy))S3.statK.add(((yy/32)|0)*100+((xx/32)|0))}}fm[i]=b}
@@ -2291,14 +2297,15 @@ function sync3D(dt){
   const selIn=new Set();for(const u of G.sel)if(u.inHouse>=0)selIn.add(u.inHouse);
   // construções
   for(const o of G.objs){let m=S3.O.get(o.id);const state=!o.alive?'dead':o.kind==='house'&&o.hp/o.max<.5?'dmg':'ok';
-    if(!m||m.state!==state){if(m){S3.scene.remove(m.mesh);m.mesh.geometry.dispose();if(m.cutM){S3.scene.remove(m.cutM);m.cutM.geometry.dispose()}if(m.roof){S3.scene.remove(m.roof);m.roof.geometry.dispose()}}m={state,mesh:state==='dead'?rubbleMesh(o):objMesh(o,state)};S3.scene.add(m.mesh);S3.O.set(o.id,m)}
-    if(o.kind==='bunker'&&o.alive){o.cut=cam.z>=1.55||selIn.has(o.id);if(!m.roof){m.roof=new THREE.Mesh(bunkerRoof(o.team),S3.matV);m.roof.position.copy(m.mesh.position);m.roof.castShadow=true;m.roof.userData.own=true;S3.scene.add(m.roof)}m.roof.visible=!o.cut&&m.mesh.visible}
-    if(o.kind==='house'&&o.alive){o.cut=cam.z>=1.55||selIn.has(o.id);if(o.cut&&!m.cutM){const [q,pal]=houseCutParts(o);m.cutM=new THREE.Mesh(partsGeo(q,pal),S3.matV);m.cutM.position.copy(m.mesh.position);m.cutM.castShadow=true;m.cutM.receiveShadow=true;S3.scene.add(m.cutM)}
+    if(!m||m.state!==state){if(m){S3.scene.remove(m.mesh);m.mesh.geometry.dispose();if(m.cutM){S3.scene.remove(m.cutM);m.cutM.geometry.dispose()}if(m.roof){S3.scene.remove(m.roof);m.roof.geometry.dispose()}}m={state,mesh:state==='dead'?rubbleMesh(o):objMesh(o,state)};S3.scene.add(m.mesh);if(o.team<0||o.built>=1)freeze(m.mesh);S3.O.set(o.id,m)}
+    if(o.kind==='bunker'&&o.alive){o.cut=cam.z>=1.55||selIn.has(o.id);if(!m.roof){m.roof=new THREE.Mesh(bunkerRoof(o.team),S3.matV);m.roof.position.copy(m.mesh.position);m.roof.castShadow=true;m.roof.userData.own=true;S3.scene.add(m.roof);freeze(m.roof)}m.roof.visible=!o.cut&&m.mesh.visible}
+    if(o.kind==='house'&&o.alive){o.cut=cam.z>=1.55||selIn.has(o.id);if(o.cut&&!m.cutM){const [q,pal]=houseCutParts(o);m.cutM=new THREE.Mesh(partsGeo(q,pal),S3.matV);m.cutM.position.copy(m.mesh.position);m.cutM.castShadow=true;m.cutM.receiveShadow=true;S3.scene.add(m.cutM);freeze(m.cutM)}
       m.mesh.visible=!o.cut;if(m.cutM)m.cutM.visible=o.cut}
-    if(o.alive&&o.team>=0){m.mesh.scale.y=o.built<1?.3+.7*o.built:1;m.mesh.visible=o.team===0||o.seen||G.reveal}}
+    if(o.alive&&o.team>=0&&(o.built<1||m.mesh.scale.y!==1)){m.mesh.matrixAutoUpdate=true;m.mesh.scale.y=o.built<1?.3+.7*o.built:1;if(o.built>=1)freeze(m.mesh)}
+    if(o.alive&&o.team>=0){m.mesh.visible=o.team===0||o.seen||G.reveal}}
   // carcaças
   S3.BT=S3.BT||new Map();for(const b of G.boats||[]){let o=S3.BT.get(b);if(!o){o=boatMesh();S3.BT.set(b,o);S3.scene.add(o)}o.position.set(b.x,-.04+Math.sin(G.t*1.6+b.id)*.015,b.y);o.rotation.y=-b.hd;o.rotation.z=Math.sin(G.t*1.1+b.id)*.012;o.userData.ramp.rotation.z=Math.PI/2*(1-b.ramp)-.2*b.ramp}for(const [b,o] of S3.BT)if(!(G.boats||[]).includes(b)){S3.scene.remove(o);S3.BT.delete(b)}
-  S3.NM=S3.NM||new Map();for(const n of G.nets||[])if(!S3.NM.has(n)){const m=netMesh(n);S3.scene.add(m);S3.NM.set(n,m)}
+  S3.NM=S3.NM||new Map();for(const n of G.nets||[])if(!S3.NM.has(n)){const m=netMesh(n);S3.scene.add(m);freeze(m);S3.NM.set(n,m)}
   if(G.jets){S3.J=S3.J||new Map();for(const j of G.jets){let o=S3.J.get(j);if(!o){o=jetMesh(j.model);S3.J.set(j,o);S3.scene.add(o)}
       o.visible=j.st==='in'||j.st==='out'||j.st==='down';o.position.set(j.x,GH(clamp(j.x,0,NX),clamp(j.y,0,NY))+j.alt,j.y);o.rotation.set(j.bank,-j.hd,j.pitch)}}
   for(const w of G.wrecks)if(!S3.W.has(w)){const m=wreckMesh(w);S3.scene.add(m);S3.W.set(w,m)}
@@ -2446,6 +2453,7 @@ function drawWeather(dt){
   ctx.fillStyle='rgba(255,255,255,.85)';for(const f of FLAKES){f.y+=f.v*dt;f.x+=(-.012+Math.sin(G.t*.8+f.ph)*.006)*dt;if(f.y>1)f.y-=1;if(f.x<0)f.x+=1;if(f.x>1)f.x-=1;ctx.globalAlpha=.4+f.s*.25;circ(f.x*W,f.y*H,f.s)}ctx.globalAlpha=1}
 
 let lastRT=performance.now();
+window.__render=()=>render();
 function render(){WINDU.value=performance.now()/1000;
   const now=performance.now(),dt=Math.min(.05,(now-lastRT)/1000);lastRT=now;
   const z=cam.z;let sx=0,sy=0;if(cam.shake>0){sx=(R()-.5)*cam.shake*10;sy=(R()-.5)*cam.shake*10}
@@ -2453,10 +2461,12 @@ function render(){WINDU.value=performance.now()/1000;
   sync3D(dt);S3.r.render(S3.scene,S3.cam);
   ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);
   drawGroundOverlays();
-  for(const o of G.objs)draw2DObj(o);
-  for(const d of G.depots)drawDepot2D(d);
+  const onS=(x,y,m)=>{const px=W2+((x-y)*TW2-cam.x)*z,py=H2+((x+y)*TH2-cam.y)*z;return px>-m&&px<W+m&&py>-m&&py<H+m*2};
+  const occ=new Set();for(const u of G.units)if(u.inHouse>=0&&!u.dead)occ.add(u.inHouse);
+  for(const o of G.objs){if(o.team<0&&o.alive&&o.hp/o.max>=.5&&!occ.has(o.id))continue;if(onS(o.cx,o.cy,140))draw2DObj(o)}
+  for(const d of G.depots)if(onS(d.x,d.y,160))drawDepot2D(d);
   for(const m of G.mines){if(m.team!==0&&!G.reveal)continue;const q=P(m.x,m.y,1);ctx.fillStyle='rgba(20,20,16,.85)';ctx.beginPath();ctx.ellipse(q[0],q[1],4*cam.z,2*cam.z,0,0,6.283);ctx.fill();ctx.fillStyle=m.team?'#ff8a5a':'#e8c66a';ctx.fillRect(q[0]-1.2,q[1]-1.2,2.4,2.4)}
-  for(const u of G.units){if(u.dead||!visibleToPlayer(u))continue;if(u.inHouse>=0&&!(G.objs[u.inHouse]||{}).cut)continue;draw2DUnit(u)}
+  for(const u of G.units){if(u.dead||!visibleToPlayer(u))continue;if(u.inHouse>=0&&!(G.objs[u.inHouse]||{}).cut)continue;if(!onS(u.x,u.y,u.cls==='air'?300:120))continue;draw2DUnit(u)}
   drawFx();drawWeather(dt);
   if(G.box){ctx.strokeStyle='#8fd3f2';ctx.lineWidth=1.5;ctx.fillStyle='rgba(143,211,242,.12)';const bx=Math.min(G.box[0],G.box[2]),by=Math.min(G.box[1],G.box[3]),bw=Math.abs(G.box[2]-G.box[0]),bh=Math.abs(G.box[3]-G.box[1]);ctx.fillRect(bx,by,bw,bh);ctx.strokeRect(bx,by,bw,bh)}
   cam.x-=sx/z;cam.y-=sy/z;cam.shake=Math.max(0,cam.shake-.04)}
@@ -2715,7 +2725,7 @@ window.addEventListener('error',ev=>showErr(ev.error||ev.message));window.addEve
 let slowT=0,lowQ=false;S3.fN=0;
 function frame(now){const raw=(now-last)/1000;const dt=Math.min(.05,raw);last=now;
   if(!lowQ&&G&&!G.demo&&!LOADING){slowT=raw>.034?slowT+raw:Math.max(0,slowT-raw*.5);if(slowT>2){lowQ=true;if(S3.treeCh)for(const t of S3.treeCh)t.m.castShadow=false;S3.r.shadowMap.autoUpdate=false;S3.r.shadowMap.needsUpdate=true;S3.r.setPixelRatio(1);S3.sun.shadow.mapSize.set(1024,1024);if(S3.sun.shadow.map){S3.sun.shadow.map.dispose();S3.sun.shadow.map=null}resize()}}
-  if(G&&!LOADING){if(!G.paused)update(dt);if(lowQ&&(++S3.fN)%3===0)S3.r.shadowMap.needsUpdate=true;render();
+  if(G&&!LOADING){if(!G.paused)update(dt);S3.r.shadowMap.autoUpdate=false;if((++S3.fN)%(lowQ?3:2)===0||cam.moved)S3.r.shadowMap.needsUpdate=true;cam.moved=false;render();
     if(!G.demo){G.timers.hud-=dt;if(G.timers.hud<=0){G.timers.hud=.2;updHUD()}G.timers.mm-=dt;if(G.timers.mm<=0){G.timers.mm=.25;drawMini()}}}
   requestAnimationFrame(frame)}
 
