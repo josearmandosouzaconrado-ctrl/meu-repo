@@ -79,7 +79,7 @@ button{font:inherit;color:inherit}
 }
 /* Overlays */
 .ov{position:fixed;inset:0;z-index:5;display:flex}
-#menu{background:linear-gradient(90deg,rgba(14,17,10,.94) 0%,rgba(14,17,10,.82) 46%,rgba(14,17,10,.25) 75%,rgba(14,17,10,0) 100%);overflow-y:auto;touch-action:pan-y}
+#menu{background:radial-gradient(120% 90% at 85% 60%,#3b4a2a 0%,#1d2416 45%,#12150e 80%);overflow-y:auto;touch-action:pan-y}
 .mcol{padding:calc(env(safe-area-inset-top,0px) + 18px) 24px calc(env(safe-area-inset-bottom,0px) + 18px) calc(env(safe-area-inset-left,0px) + 24px);
   max-width:520px;display:flex;flex-direction:column;gap:14px;margin:auto 0}
 .eyebrow{font:700 12px/1 var(--fd);letter-spacing:.3em;color:var(--gold);text-transform:uppercase}
@@ -110,6 +110,11 @@ h1 span{display:block;color:transparent;-webkit-text-stroke:1.5px var(--ink)}
 <!--ARTIFACT-BODY-START-->
 <canvas id="gl"></canvas>
 <canvas id="c"></canvas>
+<div class="ov dim" id="loading" hidden><div class="card"><div class="eyebrow">Carregando</div><h2>Preparando o campo de batalha</h2>
+  <div style="height:8px;background:rgba(236,230,208,.15);border-radius:4px;overflow:hidden"><div id="ldBar" style="height:100%;width:0;background:var(--gold);transition:width .2s"></div></div>
+  <div class="note" id="ldTxt">Preparando o mapa</div></div></div>
+<div id="errbox" hidden style="position:fixed;left:8px;right:8px;bottom:8px;z-index:20;background:#3a1410;color:#ffd9cf;border:1px solid #e2604a;border-radius:6px;padding:10px;font:12px/1.4 monospace;white-space:pre-wrap;max-height:40%;overflow:auto">
+  <b>Erro no jogo — tire um print e mande:</b><div id="errTxt"></div><button class="b" style="margin-top:6px" onclick="this.parentNode.hidden=true">Fechar</button></div>
 <div id="nogl" hidden>Seu navegador não conseguiu abrir o modo 3D (WebGL). Atualize o navegador ou tente em outro aparelho.</div>
 
 <div class="hud" id="hud" hidden>
@@ -199,7 +204,7 @@ h1 span{display:block;color:transparent;-webkit-text-stroke:1.5px var(--ink)}
 (()=>{
 'use strict';
 // ================================================================ constantes
-const N=192, SC=N/48, TEX=10, PXS=TEX/32, TW2=32, TH2=16, HZ=10, POP=60;
+const N=192, SC=N/48, TEX=8, PXS=TEX/32, TW2=32, TH2=16, HZ=10, POP=60;
 const cv=document.getElementById('c'), ctx=cv.getContext('2d');
 let W=0,H=0,W2=0,H2=0,DPR=1;
 const $=id=>document.getElementById(id);
@@ -353,7 +358,8 @@ function mkObj(kind,team,x0,y0,w,h,v){
   G.objs.push(o);return o}
 
 // ================================================================ textura do chão
-function paintGround(){
+function paintGround(){for(const _ of paintGroundGen());}
+function* paintGroundGen(){
   const S=N*TEX;if(!gcv)gcv=document.createElement('canvas');gcv.width=gcv.height=S;gctx=gcv.getContext('2d');
   const img=gctx.createImageData(S,S),d=img.data;const BI=BIOMES[G.biome],gp=BI.gp,des=G.biome==='deserto',win=G.biome==='inverno';
   const r=mulberry32((G.seed|0)^0x5bd1e995);const na=makeNoise(r),nb=makeNoise(r),nc=makeNoise(r);
@@ -370,7 +376,7 @@ function paintGround(){
     let m=1e9;for(const [bx,by] of bases)m=Math.min(m,Math.hypot(x+.5-bx,y+.5-by));bd[i]=m<4.3?1:0;
     for(const dp of DEPOTS)if(Math.hypot(x+.5-dp[0],y+.5-dp[1])<1.6)bd[i]=Math.max(bd[i],.8)}
   const ci=(x,y)=>idx(clamp(x,0,N-1),clamp(y,0,N-1));
-  for(let py=0;py<S;py++){const fy=py/TEX-.5,y0=Math.floor(fy),ty=fy-y0;const gy=py/TEX*2,gj=gy|0,gfy=gy-gj;
+  for(let py=0;py<S;py++){if(py&&py%192===0)yield 'Pintando o terreno '+Math.round(py/S*100)+'%';const fy=py/TEX-.5,y0=Math.floor(fy),ty=fy-y0;const gy=py/TEX*2,gj=gy|0,gfy=gy-gj;
     for(let px=0;px<S;px++){const fx=px/TEX-.5,x0=Math.floor(fx),tx=fx-x0;
       const a=ci(x0,y0),b=ci(x0+1,y0),c=ci(x0,y0+1),e=ci(x0+1,y0+1);
       const w00=(1-tx)*(1-ty),w10=tx*(1-ty),w01=(1-tx)*ty,w11=tx*ty;
@@ -2007,20 +2013,24 @@ cv.addEventListener('wheel',e=>{if(!G||G.demo)return;e.preventDefault();zoomAt(e
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 
 // ================================================================ ciclo
-function newGame(o){
+function newGame(o){for(const _ of newGameGen(o));}
+function* newGameGen(o){
+  yield 'Preparando o mapa';
   G={mines:[],wrecks:[],sandbox:!!o.sandbox,aiOn:!o.sandbox,strikes:[],pathQ:[],tool:null,spT:'rifle',spTeam:0,spQ:1,t:0,biome:o.biome||['inverno','deserto','outono'][(Math.random()*3)|0],burn:[],texDirty:false,roadPts:[],diff:o.diff??1,demo:!!o.demo,auto:!!o.auto,reveal:!!o.demo||!!o.sandbox,res:o.sandbox?[1e9,1e9]:[400,400],inc:[2,2],units:[],objs:[],depots:[],projs:[],parts:[],tracers:[],flashes:[],marks:[],pings:[],
     nid:1,vis:[new Uint8Array(N*N),new Uint8Array(N*N)],expl:new Uint8Array(N*N),sup:[null,null],linkedN:[0,0],ais:[],stats:{kills:0,lost:0,by:{}},over:false,sel:[],selB:null,
     placing:null,ghost:null,buildMenu:false,mode:'assault',box:null,uiDirty:true,lastAlert:-99,paused:false,timers:{vis:0,cap:0,sup:0,rs:0,hud:0,mm:0},rotOk:false};
   const seed=o.seed??((Math.random()*1e9)|0);G.seed=seed;
-  genMap(seed);
+  yield 'Gerando relevo, estradas e vilas';genMap(seed);
   for(const [x,y,name] of DEPOTS)G.depots.push({x,y,name,owner:-1,prog:0,linked:false,c:[0,0]});
   mkObj('hq',0,HQP[0][0],HQP[0][1],3,3).seen=true;mkObj('hq',1,HQP[1][0],HQP[1][1],3,3);
-  paintGround();
+  yield* paintGroundGen();
+  yield 'Posicionando as tropas';
   for(let team=0;team<2;team++){const hq=G.objs.find(q=>q.kind==='hq'&&q.team===team);const r=defaultRally(hq);
     const us=['rifle','rifle','rifle','rifle','rifle','mg','medic'].map((t,k)=>mkUnit(t,team,hq.cx+(team?1:-1)*(1.8+(k%3)*.6),hq.cy+(team?1:-1)*(1.8+(k/3|0)*.6)));
     for(const u of us){const i=tix(u.x,u.y);if(tcost(i,0)<0){const j=nearestPass(i,0);u.x=j%N+.5;u.y=((j/N)|0)+.5}}
     orderMove(us,r[0],r[1],'assault')}
-  build3D();FLAKES.length=0;
+  yield 'Montando árvores, casas e veículos em 3D';build3D();FLAKES.length=0;
+  yield 'Últimos ajustes';
   G.ais.push(mkAI(1));if(G.demo||G.auto)G.ais.push(mkAI(0));
   updSupply();computeVis(0);computeVis(1);updateFog();
   const hq=G.objs.find(q=>q.kind==='hq'&&q.team===0);
@@ -2053,10 +2063,18 @@ function endGame(winner){if(G.over)return;G.over=true;if(G.demo)return;
     const t=G.t|0;$('endS').innerHTML=`<span>Tempo</span><span>${t/60|0}:${String(t%60).padStart(2,'0')}</span><span>Inimigos abatidos</span><span>${G.stats.kills}</span><span>Baixas</span><span>${G.stats.lost}</span><span>Dificuldade</span><span>${DIFF[G.diff].name}</span>`;
     $('end').hidden=false},2200)}
 let last=performance.now();
+let LOADING=false;
+async function loadGame(o){
+  LOADING=true;const el=$('loading'),bar=$('ldBar'),txt=$('ldTxt');el.hidden=false;$('hud').hidden=true;let k=0;const total=15;
+  try{for(const step of newGameGen(o)){k++;txt.textContent=step;bar.style.width=Math.min(100,k/total*100)+'%';await new Promise(r=>setTimeout(r,20))}}
+  catch(e){showErr(e);G=null}
+  finally{LOADING=false;el.hidden=true;last=performance.now()}}
+function showErr(e){const b=$('errbox');if(!b)return;b.hidden=false;$('errTxt').textContent=String(e&&e.message||e)+'\n'+String(e&&e.stack||'').split('\n').slice(0,4).join('\n')}
+window.addEventListener('error',ev=>showErr(ev.error||ev.message));window.addEventListener('unhandledrejection',ev=>showErr(ev.reason));
 let slowT=0,lowQ=false;
 function frame(now){const raw=(now-last)/1000;const dt=Math.min(.05,raw);last=now;
-  if(!lowQ&&G&&!G.demo){slowT=raw>.034?slowT+raw:Math.max(0,slowT-raw*.5);if(slowT>3){lowQ=true;S3.r.setPixelRatio(1);S3.sun.shadow.mapSize.set(1024,1024);if(S3.sun.shadow.map){S3.sun.shadow.map.dispose();S3.sun.shadow.map=null}resize()}}
-  if(G){if(!G.paused)update(dt);render();
+  if(!lowQ&&G&&!G.demo&&!LOADING){slowT=raw>.034?slowT+raw:Math.max(0,slowT-raw*.5);if(slowT>3){lowQ=true;S3.r.setPixelRatio(1);S3.sun.shadow.mapSize.set(1024,1024);if(S3.sun.shadow.map){S3.sun.shadow.map.dispose();S3.sun.shadow.map=null}resize()}}
+  if(G&&!LOADING){if(!G.paused)update(dt);render();
     if(!G.demo){G.timers.hud-=dt;if(G.timers.hud<=0){G.timers.hud=.2;updHUD()}G.timers.mm-=dt;if(G.timers.mm<=0){G.timers.mm=.25;drawMini()}}}
   requestAnimationFrame(frame)}
 
@@ -2070,21 +2088,21 @@ let biome='inverno';
 for(const b of $('biome').children)b.addEventListener('click',()=>{biome=b.dataset.b;for(const c of $('biome').children)c.classList.toggle('on',c===b)});
 let sandbox=false;
 for(const b of $('gmode').children)b.addEventListener('click',()=>{sandbox=b.dataset.m==='1';for(const c of $('gmode').children)c.classList.toggle('on',c===b)});
-function startGame(){SND.init();goFull();$('menu').hidden=true;newGame({diff,biome,sandbox,auto:location.hash==='#auto'});}
+function startGame(){SND.init();goFull();$('menu').hidden=true;loadGame({diff,biome,sandbox,auto:location.hash==='#auto'});}
 $('bPlay').addEventListener('click',startGame);
 $('bPause').addEventListener('click',()=>{if(!G||G.demo)return;G.paused=true;$('pause').hidden=false});
 $('bResume').addEventListener('click',()=>{G.paused=false;$('pause').hidden=true});
-$('bRestart').addEventListener('click',()=>{newGame({diff:G.diff,biome:G.biome,sandbox:G.sandbox})});
+$('bRestart').addEventListener('click',()=>{$('pause').hidden=true;loadGame({diff:G.diff,biome:G.biome,sandbox:G.sandbox})});
 $('bMute').addEventListener('click',()=>{SND.muted=!SND.muted;$('bMute').textContent='Som: '+(SND.muted?'desligado':'ligado')});
-const toMenu=()=>{$('pause').hidden=true;$('end').hidden=true;$('menu').hidden=false;newGame({demo:true,diff:1})};
+const toMenu=()=>{$('pause').hidden=true;$('end').hidden=true;$('hud').hidden=true;$('menu').hidden=false;G=null};
 $('bQuit').addEventListener('click',toMenu);$('bMenu2').addEventListener('click',toMenu);
-$('bAgain').addEventListener('click',()=>{newGame({diff:G.diff,biome:G.biome})});
+$('bAgain').addEventListener('click',()=>{$('end').hidden=true;loadGame({diff:G.diff,biome:G.biome,sandbox:G.sandbox})});
 $('bRot').addEventListener('click',()=>{if(G)G.rotOk=true;$('rot').hidden=true});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&G&&!G.demo&&!G.over){G.paused=true;$('pause').hidden=false}});
 if(!matchMedia('(pointer:coarse)').matches)$('deskNote').hidden=false;
 
-if(!init3D()){$('nogl').hidden=false}else{makeSprites();resize();newGame({demo:true,diff:1,biome:'inverno'});requestAnimationFrame(frame)}
-window.__CE={SND,killUnit:u=>killUnit(u),cam,boomFx:(x,y,h,r)=>boomFx(x,y,h,r),get G(){return G},update:dt=>update(dt),newGame,orderMove,camTo,P,mkUnit,place,UT,BT};
+if(!init3D()){$('nogl').hidden=false}else{makeSprites();resize();requestAnimationFrame(frame)}
+window.__CE={SND,killUnit:u=>killUnit(u),cam,boomFx:(x,y,h,r)=>boomFx(x,y,h,r),get G(){return G},get LOADING(){return LOADING},update:dt=>update(dt),newGame,orderMove,camTo,P,mkUnit,place,UT,BT};
 })();
 </script>
 <!--ARTIFACT-BODY-END-->
