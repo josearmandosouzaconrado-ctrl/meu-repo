@@ -275,7 +275,7 @@ const HQP=[[NX-9,NY/2-2],[6,NY/2-1]];const MIDX=NX/2,MIDY=NY/2;
 const DIFF=[{inc:.75,wave:8,react:1.6,name:'Recruta'},{inc:1,wave:6,react:1,name:'Sargento'},{inc:1.3,wave:5,react:.7,name:'Comando'}];
 
 // ================================================================ estado
-let Hm,Gm,Fm,OB,gcv,gctx,fcv,fctx,fimg,mcv,mctx;
+let Hm,Gm,Fm,Mm,OB,gcv,gctx,fcv,fctx,fimg,mcv,mctx;
 let G=null;
 const cam={x:0,y:0,z:1.3,shake:0};
 
@@ -292,7 +292,7 @@ function clearZone(x,y){const cx=x+.5,cy=y+.5;
 
 function genMap(seed){
   const r=mulberry32(seed);
-  Hm=new Float32Array(NN);Gm=new Uint8Array(NN);Fm=new Uint8Array(NN);OB=new Int16Array(NN).fill(-1);
+  Hm=new Float32Array(NN);Gm=new Uint8Array(NN);Mm=new Uint8Array(NN);Fm=new Uint8Array(NN);OB=new Int16Array(NN).fill(-1);
   // relevo
   const hills=[{x:NX*.8,y:NY*.25,rad:6,h:2.1},{x:NX*.8,y:NY*.75,rad:5.5,h:1.9},{x:NX*.6,y:NY*.12,rad:5,h:1.8}];
   for(let k=0;k<Math.round(6*SC*SC);k++)hills.push({x:6+r()*(NX-12),y:6+r()*(NY-12),rad:3+r()*5,h:1.2+r()*1.9});
@@ -324,6 +324,11 @@ function genMap(seed){
   for(let i=0;i<NN;i++)if(Fm[i]===10&&Gm[i]===1)Fm[i]=11;
   for(let i=0;i<NN;i++)if(Fm[i]===11){const x=i%NX,y=(i/NX)|0;for(const yy of [y-1,y+1])if(inb(x,yy)&&Fm[idx(x,yy)]===10){Fm[idx(x,yy)]=12;Gm[idx(x,yy)]=1}}
   for(let i=0;i<NN;i++)if(Fm[i]===11||Fm[i]===12){Fm[i]=11;Gm[i]=1;Hm[i]=.02}
+  // lama: baixadas, margens dos rios e lavouras; muito no outono, pouca no deserto (1 = lama, 2 = lama funda)
+  {const mudK={outono:1,inverno:.75,deserto:.3}[G.biome]??.8,mn=makeNoise(r);const th1=1.02-.36*mudK,th2=th1+.11;
+    for(let y=0;y<NY;y++)for(let x=0;x<NX/2;x++){const i=idx(x,y);if(Fm[i]>=10||clearZone(x,y))continue;
+      let wet=mn(x/7.5,y/7.5)*.75+mn(x/2.3+30,y/2.3+30)*.25-Hm[i]*.06;const dr=Math.abs(x+.5-rivX(y+.5));if(dr<10)wet+=(10-dr)/10*.2;
+      if(Gm[i]===2)wet+=.05;else if(Gm[i]===1)wet-=.03;const m=wet>th2?2:wet>th1?1:0;if(m){Mm[i]=m;Mm[idx(NX-1-x,NY-1-y)]=m}}}
   // campos cultivados com muretas
   const fields=[];
   for(let k=0;k<Math.round((G.biome==='deserto'?4:9)*SC*SC);k++){const w=3+(r()*4|0),h=2+(r()*3|0),x0=2+(r()*(NX-8)|0),y0=2+(r()*(NY-8)|0);if(!isHalf(x0+w,y0+h))continue;fields.push([x0,y0,w,h]);
@@ -331,7 +336,7 @@ function genMap(seed){
   const noise=makeNoise(r);
   for(let y=0;y<NY;y++)for(let x=0;x<NX;x++){if(!isHalf(x,y))continue;const i=idx(x,y);
     if(Gm[i]===1||Fm[i]>=10||clearZone(x,y))continue;const n=noise(x/4.6,y/4.6);
-    if(Gm[i]!==2&&(n>BI.treeN||r()<BI.treeR))mirrorSet(Fm,x,y,1)}
+    if(Gm[i]!==2&&Mm[i]!==2&&(n>BI.treeN||r()<BI.treeR))mirrorSet(Fm,x,y,1)}
   for(const [x0,y0,w,h] of fields){
     for(let x=x0-1;x<=x0+w;x++)for(let y=y0-1;y<=y0+h;y++){if(x>=x0&&x<x0+w&&y>=y0&&y<y0+h)continue;if(!inb(x,y)||!isHalf(x,y))continue;
       const i=idx(x,y);if(Fm[i]||Gm[i]===1||clearZone(x,y))continue;if(r()<.55)mirrorSet(Fm,x,y,2)}}
@@ -384,10 +389,10 @@ function* paintGroundGen(){
   const r=mulberry32((G.seed|0)^0x5bd1e995);const na=makeNoise(r),nb=makeNoise(r),nc=makeNoise(r);
   const M=NX*2+3,MY=NY*2+3,NG=new Float32Array(M*MY),NF=new Float32Array(M*MY);
   for(let j=0;j<MY;j++)for(let i=0;i<M;i++){const x=i/2,y=j/2;NG[j*M+i]=na(x/6.5,y/6.5)*.62+nb(x/2.1,y/2.1)*.38;NF[j*M+i]=nc(x/1.05,y/1.05)}
-  const sh=new Float32Array(NN),tm=new Float32Array(NN),ym=new Float32Array(NN),ao=new Float32Array(NN),rd=new Float32Array(NN),fl=new Float32Array(NN),ft=new Uint8Array(NN),bd=new Float32Array(NN),wt=new Float32Array(NN);
+  const sh=new Float32Array(NN),tm=new Float32Array(NN),ym=new Float32Array(NN),ao=new Float32Array(NN),rd=new Float32Array(NN),fl=new Float32Array(NN),ft=new Uint8Array(NN),bd=new Float32Array(NN),wt=new Float32Array(NN),mm=new Float32Array(NN);
   const hv=(x,y)=>Hm[idx(clamp(x,0,NX-1),clamp(y,0,NY-1))];
   const bases=HQP.map(([a,b])=>[a+1.5,b+1.5]);
-  for(let y=0;y<NY;y++)for(let x=0;x<NX;x++){const i=idx(x,y);wt[i]=Fm[i]===10||Fm[i]===11?1:0;
+  for(let y=0;y<NY;y++)for(let x=0;x<NX;x++){const i=idx(x,y);wt[i]=Fm[i]===10||Fm[i]===11?1:0;mm[i]=Mm[i]*.5;
     sh[i]=clamp(1+((hv(x+1,y)-hv(x-1,y))+(hv(x,y+1)-hv(x,y-1)))*.26,.68,1.28);
     tm[i]=Fm[i]===1?1:0;ao[i]=Fm[i]===3?1:Fm[i]===2?.45:0;rd[i]=Gm[i]===1?1:0;fl[i]=Gm[i]===2?1:0;
     ft[i]=1+((hsh((x>>2)+(y>>2)*13,91)*3)|0);
@@ -425,6 +430,10 @@ function* paintGroundGen(){
       if(rv>.5){const mot=((n2-.5)*22+(fine-.5)*14)*(win?.5:1);let cR=gp.road[0]+mot,cG=gp.road[1]+mot,cB=gp.road[2]+mot*.7;
         if(n1>.66&&rv>.72){cR=gp.mud[0]+mot*.5;cG=gp.mud[1]+mot*.5;cB=gp.mud[2]}
         const k=rv<.58?.86:1;R1=cR*k;G1=cG*k;B1=cB*k}
+      // lama
+      const mv=(mm[a]*w00+mm[b]*w10+mm[c]*w01+mm[e]*w11)+(n2-.5)*.3;
+      if(mv>.28){const k=clamp((mv-.28)*3.2,0,.95),dk=win?.85:.72,mt=(fine-.5)*10;R1+=(gp.mud[0]*dk+mt-R1)*k;G1+=(gp.mud[1]*dk+mt-G1)*k;B1+=(gp.mud[2]*dk*.9+mt-B1)*k;
+        if(mv>.74&&n2>.66&&fine>.25){const pk=clamp((n2-.66)*5,0,.55);R1+=(WC[0]*.7+gp.mud[0]*.25-R1)*pk;G1+=(WC[1]*.7+gp.mud[1]*.25-G1)*pk;B1+=(WC[2]*.75+gp.mud[2]*.2-B1)*pk}}
       // sombra de muros e casas
       const sa=(ao[a]*w00+ao[b]*w10+ao[c]*w01+ao[e]*w11);const kk=(1-sa*.14);
       R1*=kk;G1*=kk;B1*=kk;
@@ -494,7 +503,7 @@ function paintTracks(u){markD(u.x,u.y,1.2);const ca=Math.cos(u.face),sa=Math.sin
 // ================================================================ pathfinding
 const PF={g:new Float32Array(NN),came:new Int32Array(NN),st:new Uint32Array(NN),cl:new Uint32Array(NN),stamp:0};
 const CI0=[1,1.7,2,-1,1.4,1.2,2,-1,1.3,3.6,-1,1],CI1=[1,3,2.6,-1,1.7,2.2,2.6,-1,-1,1.4,-1,1],CI2=[1,-1,-1,-1,1.8,2.4,-1,-1,-1,-1,-1,1];
-function tcost(i,kind){const f=Fm[i];let c=kind===0?CI0[f]:kind===1?CI1[f]:CI2[f];if(c<0)return -1;if(Gm[i]===1)c*=kind?.6:.75;return c}
+function tcost(i,kind){const f=Fm[i];let c=kind===0?CI0[f]:kind===1?CI1[f]:CI2[f];if(c<0)return -1;if(Gm[i]===1)c*=kind?.6:.75;const m=Mm[i];if(m)c*=kind?(m===2?1.6:1.25):(m===2?1.3:1.12);return c}
 function nearestPass(i,kind){const x0=i%NX,y0=(i/NX)|0;for(let r=1;r<8;r++)for(let y=y0-r;y<=y0+r;y++)for(let x=x0-r;x<=x0+r;x++){if(!inb(x,y))continue;if(Math.max(Math.abs(x-x0),Math.abs(y-y0))!==r)continue;const j=idx(x,y);if(tcost(j,kind)>=0)return j}return -1}
 function walkable(ax,ay,bx,by,kind){const d=Math.hypot(bx-ax,by-ay),n=Math.ceil(d*4);for(let k=1;k<n;k++){const t=k/n;const x=ax+(bx-ax)*t,y=ay+(by-ay)*t;const c=tcost(tix(x,y),kind);if(c<0||c>1.9)return false}return true}
 function findPath(sx,sy,tx,ty,kind){
@@ -698,8 +707,14 @@ function turnTo(a,b,step){let d=b-a;while(d>Math.PI)d-=6.2832;while(d<-Math.PI)d
 function angDiff(a,b){let d=b-a;while(d>Math.PI)d-=6.2832;while(d<-Math.PI)d+=6.2832;return Math.abs(d)}
 function speedMul(u){
   const T=UT[u.type];if(u.cls==='air')return 1;const i=tix(u.x,u.y);const c=tcost(i,T.kind||0);let m=c>0?1/c:.5;
-  if(u.cls==='inf'){if(u.prone)m*=.45;else if(u.supp>60)m*=.7}return m}
+  if(u.cls==='inf'){if(u.prone)m*=.45;else if(u.supp>60)m*=.7}else if(u.cls==='veh'&&Mm[i])m*=Mm[i]===2?.55:.85;return m}
+function stickUnit(u){u.stuck=u.stuckMax=6+R()*8;for(let k=0;k<4;k++)mudFx(u);
+  if(u.team===0&&!G.demo&&G.t-(G.lastMud||-99)>6){G.lastMud=G.t;toast(`${UT[u.type].name} atolado na lama!`,'r');alertPlayer&&alertPlayer(u.x,u.y)}}
+function mudFx(u){const ca=Math.cos(u.face),sa=Math.sin(u.face);for(const s of [-1,1]){const x=u.x-ca*.45-sa*.25*s,y=u.y-sa*.45+ca*.25*s;
+    G.parts.push({k:'debris',x,y,h:2,vx:-ca*(1+R()*1.5)+(R()-.5),vy:-sa*(1+R()*1.5)+(R()-.5),vh:30+R()*40,life:.7+R()*.4,max:1.1,s:1.5+R()*1.5,a0:1});
+    G.parts.push(puff('dust',x,y,2,{vx:-ca*.8,vy:-sa*.8,vh:6+R()*8,life:.9+R()*.6,s:4+R()*3,gr:5,a0:.55,drag:2}))}}
 function moveAlong(u,dt){
+  if(u.stuck>0){u.moving=false;u.mudT=(u.mudT||0)+dt;if(u.mudT>.22){u.mudT=0;mudFx(u)}return}
   const wp=u.path[u.pi];const dx=wp[0]-u.x,dy=wp[1]-u.y,d=Math.hypot(dx,dy);const T=UT[u.type];
   const ang=Math.atan2(dy,dx);
   if(u.cls==='veh'){u.face=turnTo(u.face,ang,2.6*dt);if(angDiff(u.face,ang)>.9&&d>.15){u.moving=true;return}}
@@ -707,11 +722,14 @@ function moveAlong(u,dt){
   const sp=T.spd*speedMul(u)*dt;u.moving=true;
   if(d<=sp){u.x=wp[0];u.y=wp[1];u.pi++;if(u.pi>=u.path.length){u.path=null;u.moving=false}}
   else{u.x+=dx/d*sp;u.y+=dy/d*sp}
-  if(u.cls==='veh'){u.trk=(u.trk||0)+Math.min(d,sp);if(u.trk>.12){u.trk=0;paintTracks(u)}}
+  if(u.cls==='veh'){u.trk=(u.trk||0)+Math.min(d,sp);if(u.trk>.12){u.trk=0;paintTracks(u)}
+    const m=Mm[tix(u.x,u.y)];if(m&&R()<(m===2?(u.type==='tank'?.28:.2):(u.type==='tank'?.035:.02))*dt)stickUnit(u)}
   if(u.type==='tank'){const i=tix(u.x,u.y);if(i!==u.lastTile){u.lastTile=i;const f=Fm[i];
       if(f===1){Fm[i]=0;paintFallen(i%NX,(i/NX)|0)}else if(f===2||f===6){Fm[i]=4;paintRubble(i%NX,(i/NX)|0)}else if(f===9)Fm[i]=0}}}
 
 function updUnit(u,dt){
+  if(u.stuck>0){let k=1;forNear(u.x,u.y,2.6,e=>{if(e!==u&&e.team===u.team&&!e.dead&&e.cls==='veh'&&!(e.stuck>0))k=2.5});u.stuck-=dt*k;
+    if(u.stuck<=0&&u.team===0&&!G.demo&&u.sel)toast(`${UT[u.type].name} saiu da lama`,'g')}
   const T=UT[u.type];u.flash=Math.max(0,u.flash-dt);u.anim+=dt;
   if(u.wounded){u.woundT-=dt;if(u.woundT<=0)killUnit(u);return}
   u.supp=Math.max(0,u.supp-(u.cls==='inf'?14:25)*dt);
@@ -1791,7 +1809,7 @@ function sync3D(dt){
     live.add(u.id);let o=S3.U.get(u.id);if(!o){o=mkUnit3(u);S3.U.set(u.id,o);S3.scene.add(o)}
     const vis=visibleToPlayer(u);o.visible=vis;if(!vis)continue;const g=GH(u.x,u.y);
     if(u.cls==='veh'){const ca=Math.cos(u.face),sa=Math.sin(u.face);const hf=GH(u.x+ca*.4,u.y+sa*.4),hb=GH(u.x-ca*.4,u.y-sa*.4),hl=GH(u.x-sa*.3,u.y+ca*.3),hr=GH(u.x+sa*.3,u.y-ca*.3);
-      o.position.set(u.x,Math.max(g,(hf+hb)/2)-.01,u.y);o.rotation.set(Math.atan2(hl-hr,.6),-u.face,Math.atan2(hf-hb,.8));if(o.userData.tur)o.userData.tur.rotation.y=-(u.tur-u.face)}
+      o.position.set(u.x,Math.max(g,(hf+hb)/2)-.01-(Mm[tix(u.x,u.y)]===2?.03:0)-(u.stuck>0?.045+Math.sin(G.t*28)*.006:0),u.y);o.rotation.set(Math.atan2(hl-hr,.6),-u.face,Math.atan2(hf-hb,.8));if(o.userData.tur)o.userData.tur.rotation.y=-(u.tur-u.face)}
     else{const ah=u.alt*HZ+(u.type==='heli'?Math.sin(u.anim*2)*1.5:Math.sin(u.anim*9)*.8);o.position.set(u.x,g+ah/ZW,u.y);o.rotation.y=-u.face;if(o.userData.rot)o.userData.rot.rotation.y+=dt*(u.type==='heli'?22:40)}}
   for(const [id,o] of S3.U)if(!live.has(id)){S3.scene.remove(o);disposeTree(o);S3.U.delete(id)}
   for(const [k,im] of S3.inst){const c=IC.get(k)||0;im.count=c;im.visible=c>0;if(c)im.instanceMatrix.needsUpdate=true}
@@ -1849,7 +1867,9 @@ function draw2DUnit(u){
   else if(u.type==='heli'&&u.flash>0){const q=P(u.x+ca*.2,u.y+sa*.2,u.alt*HZ+2);ctx.globalCompositeOperation='lighter';ctx.drawImage(SPR.fire,q[0]-8*s,q[1]-8*s,16*s,16*s);ctx.globalCompositeOperation='source-over'}
   const top=u.cls==='inf'?(u.prone||u.wounded?8:19):u.cls==='veh'?(u.type==='tank'?18:14):u.alt*HZ+(u.type==='heli'?20:8);
   if(u.sel||(u.hp<u.max&&!u.wounded))bar([sx,sy],u.hp/u.max,u.cls==='inf'?14:26,top,u.team);
-  if(u.sel&&T.w&&u.ammo[0]<=0){ctx.fillStyle='#e2604a';ctx.font='700 11px sans-serif';ctx.textAlign='center';ctx.fillText('SEM MUNIÇÃO',sx,sy-top*s-20)}
+  if(u.stuck>0){const yy=sy-top*s-22;ctx.font='700 11px sans-serif';ctx.textAlign='center';ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(sx-30,yy-11,60,15);ctx.fillStyle='#d9a25a';ctx.fillText('ATOLADO',sx,yy);
+    ctx.strokeStyle='#d9a25a';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sx-28,yy+5);ctx.lineTo(sx-28+56*(1-u.stuck/u.stuckMax),yy+5);ctx.stroke()}
+  else if(u.sel&&T.w&&u.ammo[0]<=0){ctx.fillStyle='#e2604a';ctx.font='700 11px sans-serif';ctx.textAlign='center';ctx.fillText('SEM MUNIÇÃO',sx,sy-top*s-20)}
   else if(u.team===0&&u.noSup&&u.sel){ctx.fillStyle='#e8c66a';ctx.fillRect(sx+8*s,sy-top*s-14,3,3)}}
 
 // ---------- partículas: sprites suaves
@@ -2165,7 +2185,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&G&&!G.demo
 if(!matchMedia('(pointer:coarse)').matches)$('deskNote').hidden=false;
 
 if(!init3D()){$('nogl').hidden=false}else{makeSprites();resize();requestAnimationFrame(frame)}
-window.__CE={SND,killUnit:u=>killUnit(u),cam,boomFx:(x,y,h,r)=>boomFx(x,y,h,r),get G(){return G},get LOADING(){return LOADING},get Fm(){return Fm},NX,NY,get gcv(){return gcv},S3,update:dt=>update(dt),newGame,orderMove,camTo,P,mkUnit,place,UT,BT};
+window.__CE={SND,killUnit:u=>killUnit(u),cam,boomFx:(x,y,h,r)=>boomFx(x,y,h,r),get G(){return G},get LOADING(){return LOADING},get Fm(){return Fm},get Mm(){return Mm},NX,NY,get gcv(){return gcv},S3,update:dt=>update(dt),newGame,orderMove,camTo,P,mkUnit,place,UT,BT};
 })();
 </script>
 <!--ARTIFACT-BODY-END-->
