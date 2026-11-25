@@ -896,7 +896,7 @@ function P(x,y,h){return [W2+((x-y)*TW2-cam.x)*cam.z,H2+((x+y)*TH2-(h||0)-GH(x,y
 function s2w0(sx,sy){const ix=(sx-W2)/cam.z+cam.x,iy=(sy-H2)/cam.z+cam.y;return [(ix/TW2+iy/TH2)/2,(iy/TH2-ix/TW2)/2]}
 function s2w(sx,sy){let w=s2w0(sx,sy);for(let k=0;k<4;k++){const g=GH(clamp(w[0],0,N),clamp(w[1],0,N))*ZW*cam.z;w=s2w0(sx,sy+g)}return w}
 function camTo(x,y){cam.x=(x-y)*TW2;cam.y=(x+y)*TH2;clampCam()}
-function clampCam(){cam.x=clamp(cam.x,-N*TW2,N*TW2);cam.y=clamp(cam.y,0,N*TH2*2);cam.z=clamp(cam.z,.32,2.4)}
+function clampCam(){cam.x=clamp(cam.x,-N*TW2,N*TW2);cam.y=clamp(cam.y,0,N*TH2*2);cam.z=clamp(cam.z,.32,3.2)}
 function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;W2=W/2;H2=H/2;cv.width=W*DPR|0;cv.height=H*DPR|0;if(S3.r)S3.r.setSize(W,H,false);
   $('rot').hidden=!(G&&!G.demo&&H>W&&!G.rotOk)}
 window.addEventListener('resize',resize);
@@ -1112,53 +1112,68 @@ const UNIF={inverno:[[208,212,214],[182,182,174]],deserto:[[198,174,130],[172,16
 const GEARC={inverno:[[150,156,152],[136,134,126]],deserto:[[168,146,106],[148,138,104]],outono:[[80,88,60],[98,86,60]]};
 function solPal(team){const b=G.biome in UNIF?G.biome:'outono';const u=UNIF[b][team],g=GEARC[b][team];
   return {uni:u,pant:u.map(c=>c*.93),vest:g,pack:g.map(c=>c*.88),hel:u.map(c=>c*.9),band:PAL[team].team,skin:[194,156,122],boot:[46,40,34],glove:[58,54,48],gun:[36,36,33],gun2:[70,62,50],white:[232,230,222],red:[194,52,44],tube:[86,94,68],pad:[62,60,54],opt:[24,24,24]}}
+// ---------- soldado esculpido (frente +X, cima +Y, direita +Z; tiles; altura ~0,34)
+function capS(A,a,b,r,col,seg){const V=THREE.Vector3;const d=new V(b[0]-a[0],b[1]-a[1],b[2]-a[2]);const len=d.length();
+  const q=len>1e-5?new THREE.Quaternion().setFromUnitVectors(new V(0,1,0),d.clone().normalize()):new THREE.Quaternion();
+  addSmooth(A,new THREE.CapsuleGeometry(r,Math.max(1e-4,len),4,seg||10),col,new THREE.Matrix4().compose(new V((a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2),q,new V(1,1,1)))}
+function taper(A,a,b,r0,r1,col,seg){limb(A,a,b,r0,r1,col,seg||10);sph(A,a[0],a[1],a[2],r0,col,1,1,1,10);sph(A,b[0],b[1],b[2],r1,col,1,1,1,10)}
+function ellR(A,p,r,s,col,rot,seg){addSmooth(A,new THREE.SphereGeometry(r,seg||14,Math.max(8,((seg||14)*.75)|0)),col,M4s(p[0],p[1],p[2],rot?rot[0]:0,rot?rot[1]:0,rot?rot[2]:0,s[0],s[1],s[2]))}
+function lathe(A,prof,p,s,col,rot,seg){addSmooth(A,new THREE.LatheGeometry(prof.map(([r,y])=>new THREE.Vector2(r,y)),seg||16),col,M4s(p[0],p[1],p[2],rot?rot[0]:0,rot?rot[1]:0,rot?rot[2]:0,s[0],s[1],s[2]))}
+const TORSO=[[0,0],[.03,.002],[.036,.02],[.034,.045],[.038,.07],[.045,.095],[.048,.108],[.044,.12],[.032,.128],[.014,.132],[0,.133]];
+const HELM=[[.036,-.008],[.042,-.009],[.041,-.006],[.0365,-.002],[.036,.006],[.033,.018],[.026,.029],[.014,.036],[0,.038]];
 function soldierGeo(type,pose,fr,team){
-  const key=type+pose+fr+team+G.biome;let g=SOLG.get(key);if(g)return g;
+  const key='v2'+type+pose+fr+team+G.biome;let g=SOLG.get(key);if(g)return g;
   const P0=solPal(team),dim=pose==='w'?.7:1;const P={};for(const k in P0)P[k]=P0[k].map(c=>c*dim);
-  const A=NA();const med=type==='medic';const U=30,Gk=24;
-  const rifle=(a,b,big)=>{CAMO_K=0;const V=t=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
-    limb(A,a,V(.24),big?.011:.009,big?.009:.007,big?P.gun:P.gun2,5);limb(A,V(.22),V(.56),big?.013:.0095,big?.013:.0095,P.gun,6);limb(A,V(.54),b,big?.0065:.0045,big?.0065:.0045,P.gun,5);
-    const m=V(.42);bx(A,m[0],m[1]-(big?.022:.016),m[2],big?.03:.012,big?.028:.024,big?.024:.011,big?P.tube:P.gun,0,0,big?0:-.15);
-    const o=V(.36);if(!big){bx(A,o[0],o[1]+.013,o[2],.03,.012,.011,P.opt)}else{bx(A,o[0],o[1]+.016,o[2],.05,.008,.03,P.gun)}};
+  const A=NA();const med=type==='medic';const U=30,Gk=24;const HC=med?P.white:P.hel;
+  const head=(c,rot)=>{CAMO_K=0;ellR(A,c,.0235,[1.02,1.14,.92],P.skin,rot);ellR(A,[c[0]+.012,c[1]-.012,c[2]],.014,[1,.8,1.05],P.skin,rot);ellR(A,[c[0]+.024,c[1]+.0,c[2]],.005,[1,1.2,.8],P.skin,rot,8);
+    CAMO_K=U;lathe(A,HELM,[c[0]-.002,c[1]+.006,c[2]],[1.02,1,1.06],HC,rot,18);CAMO_K=0;lathe(A,[[.0352,0],[.0352,.006]],[c[0]-.002,c[1]+.014,c[2]],[1.02,1,1.06],P.band,rot,18);};
+  const boot=(f,ang)=>{CAMO_K=0;ellR(A,[f[0]+.012,f[1]+.012,f[2]],.026,[1.15,.55,.6],P.boot,[0,ang||0,0],10);bx(A,f[0]+.012,f[1]+.001,f[2],.058,.006,.03,[26,24,22],ang||0)};
+  const hand=(h)=>{CAMO_K=0;ellR(A,h,.0105,[1.2,.9,.8],P.glove,null,8)};
+  const arm=(sh,el,hd,banded)=>{CAMO_K=U;taper(A,sh,el,.0155,.0135,P.uni);taper(A,el,hd,.0128,.0105,P.uni);if(banded){CAMO_K=0;const m=[sh[0]+(el[0]-sh[0])*.45,sh[1]+(el[1]-sh[1])*.45,sh[2]+(el[2]-sh[2])*.45];limb(A,[m[0],m[1]+.005,m[2]],[m[0],m[1]-.005,m[2]],.0165,.0165,P.band,10)}hand(hd)};
+  const leg=(hip,knee,ank,ang)=>{CAMO_K=U;taper(A,hip,knee,.024,.0175,P.pant);taper(A,knee,ank,.0168,.0125,P.pant);CAMO_K=0;ellR(A,[knee[0]+.012,knee[1],knee[2]],.0135,[.8,1.1,1],P.pad,null,8);boot([ank[0],ank[1]-.012,ank[2]],ang)};
+  const rifle=(a,b,kind)=>{CAMO_K=0;const V=t=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];const dir=Math.atan2(-(b[2]-a[2]),b[0]-a[0]);const pitch=Math.atan2(b[1]-a[1],Math.hypot(b[0]-a[0],b[2]-a[2]));
+    const big=kind==='mg';const L=Math.hypot(b[0]-a[0],b[1]-a[1],b[2]-a[2]);
+    const piece=(t,len,h,w,col,dy)=>{const c=V(t);addGeo(A,new THREE.BoxGeometry(len*L,h,w),col,M4s(c[0],c[1]+(dy||0),c[2],0,dir,pitch))};
+    piece(.12,.24,big?.024:.02,.012,P.gun2);piece(.4,.32,big?.026:.02,big?.02:.013,P.gun);piece(.38,.08,big?.032:.026,big?.024:.011,P.gun,big?-.022:-.018);
+    piece(.31,.05,.02,.01,P.gun,-.016);capS(A,V(.56),b,big?.0055:.004,P.gun,6);if(!big)piece(.38,.14,.011,.012,P.opt,.016);else piece(.34,.2,.01,.03,P.gun,.017)};
   if(pose==='s'){
-    const ph=Math.sin(fr/8*6.283),ph2=Math.cos(fr/8*6.283);const walk=fr>0;
-    for(const side of [-1,1]){const z=side*.027,s=walk?side*.062*ph:0;const lift=walk?Math.max(0,side*ph2)*.03:0;
-      const hip=[0,.168,z],foot=[s,.02+lift,z*1.15],knee=[(hip[0]+foot[0])/2+.03,(hip[1]+foot[1])/2+.006+lift*.3,z];
-      CAMO_K=U;limb(A,hip,knee,.022,.018,P.pant);limb(A,knee,[foot[0],foot[1]+.014,foot[2]],.017,.015,P.pant);
-      CAMO_K=0;sph(A,knee[0]+.012,knee[1],knee[2],.014,P.pad,1,1,1,8);bx(A,foot[0]+.013,foot[1]+.003,foot[2],.054,.028,.03,P.boot);bx(A,foot[0]+.013,foot[1]-.009,foot[2],.058,.006,.032,[28,26,24])}
-    CAMO_K=U;bx(A,0,.172,0,.052,.042,.08,P.pant);
-    limb(A,[0,.17,0],[.012,.272,0],.036,.04,P.uni,10);
-    CAMO_K=Gk;bx(A,.012,.234,0,.068,.074,.09,P.vest);CAMO_K=0;
-    for(const z of [-.024,0,.024])bx(A,.05,.216,z,.012,.03,.019,P.pack);bx(A,.012,.176,0,.064,.012,.084,[54,50,44]);
-    for(const z of [-.036,.036])bx(A,.012,.27,z,.05,.01,.014,P.vest);
-    if(med){CAMO_K=0;bx(A,-.044,.236,0,.04,.072,.066,P.white);bx(A,-.0645,.24,0,.002,.036,.012,P.red);bx(A,-.0645,.24,0,.002,.012,.036,P.red)}
-    else{CAMO_K=Gk;bx(A,-.046,.236,0,.038,.08,.068,P.pack);CAMO_K=0;limb(A,[-.054,.28,-.036],[-.054,.28,.036],.014,.014,[96,86,64],8);if(type==='rifle'&&team===0)cylY(A,-.06,.33,-.02,.002,.1,P.gun,4)}
-    CAMO_K=0;limb(A,[.012,.272,0],[.014,.29,0],.012,.012,P.skin);sph(A,.018,.304,0,.024,P.skin,1,1.05,.95,10);
-    CAMO_K=U;addSmooth(A,new THREE.SphereGeometry(.033,14,7,0,Math.PI*2,0,Math.PI*.55),med?P.white:P.hel,M4s(.014,.31,0,0,0,0,1,.88,1));
-    CAMO_K=0;addSmooth(A,new THREE.CylinderGeometry(.036,.037,.005,14),med?P.white:P.hel,M4s(.014,.312,0));addSmooth(A,new THREE.CylinderGeometry(.0335,.0335,.008,14,1,true),P.band,M4s(.014,.322,0));
-    bx(A,.045,.33,0,.01,.012,.016,P.gun);
-    const arm=(sh,el,hd)=>{CAMO_K=U;limb(A,sh,el,.013,.011,P.uni);CAMO_K=0;limb(A,el,hd,.011,.01,P.uni);sph(A,hd[0],hd[1],hd[2],.0095,P.glove,1,1,1,8)};
-    const band=(sh,el)=>{CAMO_K=0;const m=[(sh[0]+el[0])/2,(sh[1]+el[1])/2,(sh[2]+el[2])/2];limb(A,[m[0],m[1]+.006,m[2]],[m[0],m[1]-.006,m[2]],.0142,.0142,P.band,8)};
-    if(type==='at'){CAMO_K=0;limb(A,[-.1,.296,.048],[.17,.296,.048],.017,.017,P.tube,10);limb(A,[.17,.296,.048],[.21,.296,.048],.017,.026,P.gun,10);bx(A,.03,.283,.048,.02,.02,.008,P.gun);
-      arm([.008,.276,.05],[.02,.248,.075],[.04,.278,.055]);band([.008,.276,.05],[.02,.248,.075]);arm([.008,.276,-.05],[.07,.25,-.04],[.1,.284,.04])}
-    else if(med){arm([.008,.276,.05],[.01,.22,.062],[.054,.2,.05]);band([.008,.276,.05],[.01,.22,.062]);CAMO_K=0;bx(A,.07,.203,.05,.04,.014,.01,P.gun);arm([.008,.276,-.05],[0,.22,-.062],[.022,.178,-.06])}
-    else{const mg=type==='mg';const a=mg?[-.03,.24,.032]:[-.01,.262,.032],b=mg?[.26,.236,.012]:[.21,.256,.012];rifle(a,b,mg);
-      const grip=mg?[.04,.232,.03]:[.05,.25,.03],fore=mg?[.13,.236,.02]:[.12,.255,.02];
-      arm([.008,.276,.05],[0,.236,.068],grip);band([.008,.276,.05],[0,.236,.068]);arm([.008,.276,-.05],[.07,.238,-.045],fore);
-      if(mg){CAMO_K=0;bx(A,.06,.21,.042,.04,.032,.03,[70,74,54]);limb(A,[.06,.226,.03],[.08,.236,.016],.004,.004,[150,120,40],4)}}}
-  else{const w=pose==='w';
-    for(const side of [-1,1]){const z=side*(w?.04:.027);const hip=[-.07,.03,side*.026],knee=[-.16,.02,z*1.4],foot=[-.25,.018,z*1.8];
-      CAMO_K=U;limb(A,hip,knee,.021,.018,P.pant);limb(A,knee,foot,.017,.015,P.pant);CAMO_K=0;bx(A,foot[0]-.014,.022,foot[2],.028,.034,.03,P.boot)}
-    CAMO_K=U;limb(A,[-.075,.034,0],[.062,.04,0],.04,.037,P.uni,10);CAMO_K=Gk;bx(A,-.005,.046,0,.1,.052,.09,P.vest);
-    if(!w){bx(A,-.02,.084,0,.08,.032,.064,med?P.white:P.pack)}
-    CAMO_K=0;sph(A,.1,.05,0,.024,P.skin,1,1,1,10);
-    if(w){CAMO_K=U;addSmooth(A,new THREE.SphereGeometry(.033,12,6,0,Math.PI*2,0,Math.PI*.55),P.hel,M4s(.06,.012,.1,0,0,1.6));
-      for(const side of [-1,1]){CAMO_K=U;limb(A,[.05,.04,side*.05],[.06,.025,side*.11],.012,.011,P.uni);CAMO_K=0;limb(A,[.06,.025,side*.11],[.1,.02,side*.15],.011,.01,P.uni)}}
-    else{CAMO_K=U;addSmooth(A,new THREE.SphereGeometry(.033,12,6,0,Math.PI*2,0,Math.PI*.55),med?P.white:P.hel,M4s(.096,.056,0));CAMO_K=0;addSmooth(A,new THREE.CylinderGeometry(.0335,.0335,.008,12,1,true),P.band,M4s(.096,.066,0));
-      if(type==='at'){CAMO_K=0;limb(A,[-.06,.065,.045],[.2,.065,.045],.017,.017,P.tube,10)}
-      else{const mg=type==='mg';rifle([.04,.044,.03],[mg?.33:.29,.034,.01],mg);if(mg){limb(A,[.3,.034,.01],[.32,0,-.015],.004,.004,P.gun,4);limb(A,[.3,.034,.01],[.32,0,.035],.004,.004,P.gun,4)}}
-      CAMO_K=U;limb(A,[.06,.045,.05],[.08,.018,.065],.012,.011,P.uni);CAMO_K=0;limb(A,[.08,.018,.065],[.11,.035,.03],.011,.01,P.uni);sph(A,.11,.036,.03,.009,P.glove,1,1,1,8);
-      CAMO_K=U;limb(A,[.06,.045,-.05],[.12,.018,-.06],.012,.011,P.uni);CAMO_K=0;limb(A,[.12,.018,-.06],[.17,.034,.01],.011,.01,P.uni);sph(A,.17,.035,.01,.009,P.glove,1,1,1,8)}}
+    const walk=fr>0,ph=walk?Math.sin(fr/8*6.283):0,ph2=walk?Math.cos(fr/8*6.283):0;const bob=walk?Math.abs(ph)*.006:0,lean=walk?.012:0;
+    const hipY=.172-bob;const legs=[];
+    for(const side of [-1,1]){const z=side*.028;let fx,fy,kx;
+      if(walk){const sw=side*.065*ph,lift=Math.max(0,side*ph2)*.034;fx=sw;fy=.02+lift;kx=(fx*.5)+.035+lift*.4}
+      else{fx=side<0?.04:-.03;fy=.02;kx=side<0?.05:.012}
+      const hip=[lean,hipY,z],ank=[fx,fy+.012,z*1.25],knee=[kx,(hipY+ank[1])/2+.004,z*1.12];legs.push([hip,knee,ank])}
+    for(const [h,k,a] of legs)leg(h,k,a,walk?0:(a[2]<0?-.25:.35));
+    CAMO_K=U;ellR(A,[lean,hipY+.004,0],.038,[1.05,.75,1.35],P.pant);
+    lathe(A,TORSO,[lean+.002,hipY+.004,0],[.78,1,1],P.uni,[0,0,-.06],16);
+    CAMO_K=Gk;bx(A,lean+.018,hipY+.07,0,.06,.07,.084,P.vest,0,0,-.06);bx(A,lean-.016,hipY+.075,0,.05,.064,.08,P.vest,0,0,-.06);
+    CAMO_K=0;for(const z of [-.025,0,.025])bx(A,lean+.051,hipY+.05,z,.012,.028,.02,P.pack,0,0,-.06);bx(A,lean,hipY+.012,0,.064,.012,.09,[52,48,42]);
+    for(const z of [-.04,.04]){bx(A,lean+.008,hipY+.012,z*1.05,.03,.026,.02,P.pack)}
+    const sh=[lean+.006,hipY+.112],shL=[sh[0],sh[1],-.054],shR=[sh[0],sh[1],.054];
+    CAMO_K=U;ellR(A,shL,.019,[1,1,1.1],P.uni);ellR(A,shR,.019,[1,1,1.1],P.uni);
+    if(med){CAMO_K=0;bx(A,lean-.048,hipY+.075,0,.04,.07,.066,P.white,0,0,-.06);bx(A,lean-.069,hipY+.08,0,.003,.036,.012,P.red,0,0,-.06);bx(A,lean-.069,hipY+.08,0,.003,.012,.036,P.red,0,0,-.06)}
+    else{CAMO_K=Gk;bx(A,lean-.05,hipY+.075,0,.038,.08,.07,P.pack,0,0,-.06);CAMO_K=0;capS(A,[lean-.056,hipY+.122,-.034],[lean-.056,hipY+.122,.034],.014,[98,88,66],10)}
+    CAMO_K=0;capS(A,[sh[0]+.004,sh[1]+.004,0],[sh[0]+.008,sh[1]+.02,0],.012,P.skin,8);
+    head([sh[0]+.012,sh[1]+.036,0]);
+    const y0=hipY+.09;
+    if(type==='at'){CAMO_K=0;capS(A,[-.1,y0+.035,.05],[.16,y0+.035,.05],.017,P.tube,12);limb(A,[.16,y0+.035,.05],[.21,y0+.035,.05],.017,.027,P.gun,12);bx(A,.03,y0+.02,.05,.022,.022,.008,P.gun);
+      arm(shR,[.016,y0-.012,.078],[.04,y0+.02,.056],true);arm(shL,[.07,y0-.01,-.04],[.1,y0+.024,.04])}
+    else if(med){arm(shR,[.012,y0-.04,.066],[.056,y0-.06,.05],true);CAMO_K=0;bx(A,.074,y0-.058,.05,.04,.014,.01,P.gun);arm(shL,[.004,y0-.045,-.066],[.024,y0-.085,-.062])}
+    else{const mg=type==='mg';const a=mg?[-.03,y0-.01,.034]:[-.012,y0+.012,.036],b=mg?[.27,y0-.016,.012]:[.22,y0+.006,.012];rifle(a,b,mg?'mg':'r');
+      const grip=mg?[.04,y0-.02,.032]:[.052,y0,.032],fore=mg?[.135,y0-.016,.02]:[.125,y0+.006,.018];
+      arm(shR,[.006,y0-.016,.072],grip,true);arm(shL,[.072,y0-.014,-.046],fore);
+      if(mg){CAMO_K=0;bx(A,.06,y0-.045,.042,.04,.032,.03,[70,74,54]);capS(A,[.06,y0-.03,.03],[.085,y0-.02,.016],.003,[150,120,40],4)}}}
+  else{const w=pose==='w';const hipY=.032;
+    for(const side of [-1,1]){const z=side*(w?.045:.028);const hip=[-.075,hipY,side*.027],knee=[-.165,.022,z*1.35],ank=[-.255,.022,z*1.7];
+      CAMO_K=U;taper(A,hip,knee,.023,.017,P.pant);taper(A,knee,ank,.016,.012,P.pant);CAMO_K=0;ellR(A,[ank[0]-.016,.026,ank[2]],.024,[.6,1,.6],P.boot,null,10)}
+    CAMO_K=U;ellR(A,[-.075,hipY+.004,0],.036,[1,.75,1.3],P.pant);lathe(A,TORSO,[-.075,hipY+.006,0],[.78,.95,1],P.uni,[0,0,-Math.PI/2],16);
+    CAMO_K=Gk;bx(A,-.01,hipY+.02,0,.08,.05,.088,P.vest);if(!w){bx(A,-.02,hipY+.05,0,.08,.03,.064,med?P.white:P.pack)}
+    CAMO_K=U;ellR(A,[.055,hipY+.01,-.054],.018,[1,1,1],P.uni);ellR(A,[.055,hipY+.01,.054],.018,[1,1,1],P.uni);
+    if(w){CAMO_K=0;ellR(A,[.1,.035,0],.0235,[1.14,.92,1.02],P.skin);CAMO_K=U;lathe(A,HELM,[.07,.02,.11],[1,1,1],P.hel,[0,0,1.6],14);
+      for(const side of [-1,1]){arm([.055,hipY+.01,side*.054],[.07,.02,side*.11],[.11,.018,side*.15])}}
+    else{CAMO_K=0;ellR(A,[.1,.05,0],.0235,[1.02,1.14,.92],P.skin,[0,0,-.5]);CAMO_K=U;lathe(A,HELM,[.098,.058,0],[1.02,1,1.06],HC,[0,0,-.5],18);CAMO_K=0;lathe(A,[[.0352,0],[.0352,.006]],[.1,.066,0],[1.02,1,1.06],P.band,[0,0,-.5],18);
+      if(type==='at')capS(A,[-.06,.068,.046],[.2,.068,.046],.017,P.tube,12);else{const mg=type==='mg';rifle([.04,.046,.03],[mg?.34:.3,.036,.01],mg?'mg':'r');if(mg){limb(A,[.31,.036,.01],[.33,0,-.015],.004,.004,P.gun,4);limb(A,[.31,.036,.01],[.33,0,.035],.004,.004,P.gun,4)}}
+      arm([.055,hipY+.01,.054],[.08,.015,.07],[.11,.036,.03],true);arm([.055,hipY+.01,-.054],[.125,.015,-.062],[.17,.036,.01])}}
   CAMO_K=0;g=mkGeo(A,1);SOLG.set(key,g);return g}
 
 // ---------- construções da base (modelos novos)
@@ -1726,7 +1741,7 @@ function onScreen(u){const p=P(u.x,u.y);return p[0]>0&&p[0]<W&&p[1]>0&&p[1]<H}
 function boxSelect(b){const x0=Math.min(b[0],b[2]),x1=Math.max(b[0],b[2]),y0=Math.min(b[1],b[3]),y1=Math.max(b[1],b[3]);
   const us=G.units.filter(u=>{if(u.team!==0||u.dead||u.wounded)return false;const p=P(u.x,u.y,u.alt*HZ);return p[0]>=x0&&p[0]<=x1&&p[1]>=y0-8&&p[1]<=y1+8});
   const combat=us.filter(u=>u.type!=='truck');selectUnits(combat.length?combat:us)}
-function zoomAt(mx,my,f){const ix=(mx-W2)/cam.z+cam.x,iy=(my-H2)/cam.z+cam.y;cam.z=clamp(cam.z*f,.32,2.4);cam.x=ix-(mx-W2)/cam.z;cam.y=iy-(my-H2)/cam.z;clampCam()}
+function zoomAt(mx,my,f){const ix=(mx-W2)/cam.z+cam.x,iy=(my-H2)/cam.z+cam.y;cam.z=clamp(cam.z*f,.32,3.2);cam.x=ix-(mx-W2)/cam.z;cam.y=iy-(my-H2)/cam.z;clampCam()}
 cv.addEventListener('pointerdown',e=>{if(!G||G.demo)return;e.preventDefault();SND.init();cv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(ptrs.size===1){gest={m:'pend',x0:e.clientX,y0:e.clientY,t0:performance.now(),lx:e.clientX,ly:e.clientY,id:e.pointerId};
     gest.lp=setTimeout(()=>{if(gest&&gest.m==='pend'&&!G.placing){gest.m='box';G.box=[gest.x0,gest.y0,gest.lx,gest.ly];try{navigator.vibrate&&navigator.vibrate(12)}catch(_){}}},420)}
