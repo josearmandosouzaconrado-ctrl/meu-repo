@@ -58,3 +58,8 @@ Dá para instalar na tela inicial pelo menu do navegador ("Adicionar à tela ini
 - **IA** em três dificuldades (Recruta, Sargento, Comando). Vence quem destruir o QG inimigo.
 
 Abrir com `#auto` no fim do endereço coloca a IA para jogar pelos dois lados (modo de teste).
+
+## Créditos
+
+- Modelo do soldado: "Military RTS Character" (licença CC0, domínio público). Usado com malhas LOD2/LOD3, textura com AO aplicada, esqueleto e poses gerados por código.
+- Motor 3D: [three.js](https://threejs.org) (MIT).
