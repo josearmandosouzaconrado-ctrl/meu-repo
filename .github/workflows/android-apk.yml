@@ -25,7 +25,8 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - uses: android-actions/setup-android@v3
+      - name: Verificar Android SDK (já instalado no runner)
+        run: echo "ANDROID_HOME=$ANDROID_HOME" && ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools"
 
       - name: Instalar dependências
         run: npm ci
