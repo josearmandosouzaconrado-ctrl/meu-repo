@@ -8,6 +8,15 @@ relevo de verdade, sombras longas do sol, explosões com fogo, fumaça e poeira,
 **Inverno** (neve, trincheiras já cavadas, ouriços antitanque), **Deserto** (casas de adobe com laje,
 muros de pátio, palmeiras) e **Outono**.
 
+Mapa gigante de 128×128 tiles com 13 depósitos, várias vilas, estradas e florestas.
+
+### Modo Sandbox
+Escolha **Sandbox** no menu: recursos infinitos (∞), produção e construção quase instantâneas,
+até 300 tropas por lado e nenhuma derrota. Botões extras:
+- **Criar:** escolha lado (aliado ou inimigo), tipo de unidade e quantidade (1, 5, 10 ou 25) e toque no mapa.
+- **Artilharia:** toque no mapa para uma salva de 5 granadas que atinge todo mundo.
+- **IA inimiga:** liga ou desliga a IA que constrói e ataca.
+
 ## Como jogar
 
 Abra `index.html` no navegador do celular, deite o aparelho e toque em **Jogar**.
@@ -20,7 +29,7 @@ Dá para instalar na tela inicial pelo menu do navegador ("Adicionar à tela ini
 | Tocar no chão | Move. Cada soldado procura cobertura sozinho |
 | Tocar num inimigo | Ataca |
 | Um dedo arrastando | Move a câmera |
-| Dois dedos | Zoom |
+| Dois dedos | Zoom (afaste bastante para ver o mapa inteiro) |
 
 ## Mecânicas
 
