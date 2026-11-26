@@ -90,8 +90,8 @@ export class Entity {
     const self = this;
     switch (name) {
       case 'minecraft:rideable':
-        if (this.typeId !== 'ww2:parachute') return undefined;
-        return { addRider(r) { if (r.mount) return false; r.mount = self; self.riders.push(r); r.location = { ...self.location }; return true; },
+        if (this.typeId !== 'ww2:parachute' && this.typeId !== 'ww2:sherman') return undefined;
+        return { addRider(r) { if (r.mount) return false; if (self.riders.length >= (self.typeId === 'ww2:sherman' ? 7 : 1)) return false; r.mount = self; self.riders.push(r); r.location = { ...self.location }; return true; },
           ejectRiders() { for (const r of self.riders) r.mount = null; self.riders = []; }, getRiders: () => self.riders };
       case 'minecraft:riding':
         return this.mount ? { entityRidingOn: this.mount } : undefined;

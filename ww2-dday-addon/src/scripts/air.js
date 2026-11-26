@@ -156,21 +156,22 @@ function aimFlak(flak, aim) {
   setProp(flak, 'ww2:pitch', Math.max(-8, Math.min(88, Math.round(pitch))));
 }
 
-function fireShell(flak, aim, airburst) {
-  const muzzle = add(flak.location, { x: 0, y: 1.15, z: 0 });
+function fireShell(flak, aim, airburst, opts = {}) {
+  const muzzle = opts.from ?? add(flak.location, { x: 0, y: 1.15, z: 0 });
   const dir = norm(sub(aim, muzzle));
-  const start = add(muzzle, mul(dir, 2.9));
+  const start = opts.from ? muzzle : add(muzzle, mul(dir, 2.9));
   let s;
   try { s = dim().spawnEntity('ww2:flak_shell', start); } catch { return; }
-  const speed = 3.4;
+  const speed = opts.speed ?? 3.4;
   try {
     const pc = s.getComponent('minecraft:projectile');
     if (pc) { safe(() => { pc.owner = flak; }); pc.shoot(mul(dir, speed)); } else s.applyImpulse(mul(dir, speed));
   } catch { safe(() => s.applyImpulse(mul(dir, speed))); }
   const fuse = airburst ? Math.max(4, Math.floor(dist(aim, start) / speed) + randi(-3, 2)) : 70;
-  shells.set(s.id, { e: s, fuse, air: airburst });
+  shells.set(s.id, { e: s, fuse: opts.fuse ?? fuse, air: airburst, power: opts.power ?? 1.4, src: flak });
   particle('ww2:muzzle_flash', start);
-  sound('ww2.flak_shot', muzzle, 3, rand(0.9, 1.1));
+  if (opts.big) { particle('ww2:flak_flash', start); particle('ww2:flak_smoke', start); }
+  sound(opts.sound ?? 'ww2.flak_shot', muzzle, opts.big ? 5 : 3, rand(0.9, 1.1));
 }
 
 function tickFlak() {
@@ -179,6 +180,7 @@ function tickFlak() {
   const targets = airTargets();
   for (const f of HUB.battle.liveFlaks()) {
     const e = f.e;
+    if (f.kind !== 'flak') continue;
     let st = flakState.get(e.id);
     if (!st) { st = { next: t + randi(10, 60), burst: 0, aim: null }; flakState.set(e.id, st); }
     if (t < st.next) continue;
@@ -226,10 +228,11 @@ function flakBurst(loc) {
   } catch { /* ignore */ }
 }
 
-function groundImpact(loc, flak) {
+function groundImpact(loc, flak, power = 1.4) {
   particle('ww2:explosion', loc);
-  sound('ww2.explosion', loc, 2, rand(1.2, 1.5));
-  try { dim().createExplosion(loc, 1.4, { breaksBlocks: false, causesFire: false, source: valid(flak) ? flak : undefined }); } catch { /* ignore */ }
+  if (power > 2) particle('ww2:flak_smoke', loc);
+  sound('ww2.explosion', loc, power > 2 ? 3 : 2, power > 2 ? rand(0.9, 1.1) : rand(1.2, 1.5));
+  try { dim().createExplosion(loc, power, { breaksBlocks: false, causesFire: false, source: valid(flak) ? flak : undefined }); } catch { /* ignore */ }
 }
 
 function onShellHit(projectile, loc) {
@@ -237,7 +240,7 @@ function onShellHit(projectile, loc) {
   const d = id !== undefined ? shells.get(id) : undefined;
   if (d) { if (d.handled) return; d.handled = true; shells.delete(id); }
   if (d && d.air) { flakBurst(loc); return; }
-  groundImpact(loc);
+  groundImpact(loc, d && d.src, d ? d.power : 1.4);
 }
 
 function tickShells() {
@@ -245,7 +248,7 @@ function tickShells() {
     if (!valid(s.e)) {
       // removido ao acertar algo (o evento de impacto pode não ter chegado)
       shells.delete(id);
-      if (!s.handled && s.last) { s.handled = true; if (s.air) flakBurst(s.last); else groundImpact(s.last); }
+      if (!s.handled && s.last) { s.handled = true; if (s.air) flakBurst(s.last); else groundImpact(s.last, s.src, s.power); }
       continue;
     }
     s.last = safe(() => ({ ...s.e.location }), s.last);
@@ -254,7 +257,7 @@ function tickShells() {
       const loc = { ...s.e.location };
       shells.delete(id);
       safe(() => s.e.remove());
-      if (s.air) flakBurst(loc); else groundImpact(loc);
+      if (s.air) flakBurst(loc); else groundImpact(loc, s.src, s.power);
     }
   }
 }
@@ -294,5 +297,5 @@ export function removeAll() {
   planes.length = 0;
 }
 
-HUB.air = { spawnFormation, startDrops, flyAway, addDeparting, reinforcement, onShellHit, removeAll,
+HUB.air = { fireShell, groundImpact, aimGun: aimFlak, spawnFormation, startDrops, flyAway, addDeparting, reinforcement, onShellHit, removeAll,
   planeCount: () => planes.length };

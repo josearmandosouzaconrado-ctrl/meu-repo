@@ -44,6 +44,23 @@ de paraquedistas controlados por IA. Cada um salta pela porta, e você é o últ
   quando vê o inimigo, avisa "Contato! Alemães a nordeste, 15 metros!", pede médico e se recupera fora de combate.
 - Placar lateral: baterias AA restantes, paraquedistas, alemães e reforços aéreos.
 
+## Missão 2: Operação Bosque
+
+Quando todas as baterias antiaéreas caem, aparece **MISSÃO CUMPRIDA** e a tela escurece. Em seguida, um
+**mapa de operações** mostra o próximo alvo: o Bosque de Hautot, cortado por uma estrada de terra e defendido por
+dois canhões antitanque **Pak 40**, um ninho de metralhadora e infantaria entre as árvores.
+
+Depois do briefing você aparece **em cima de um tanque M4 Sherman**, numa coluna de 4 tanques em movimento pela
+estrada de terra. Os outros esquadrões de IA vão montados nos outros tanques. O addon gera o terreno no mundo: a estrada,
+cercas vivas da Normandia (bocage) e o bosque fechado.
+
+Quando a coluna chega ao bosque, um Pak 40 acerta o tanque da frente. É a **emboscada**: todos desembarcam e o QG
+coordena o ataque. Os Shermans avançam atrás da infantaria e disparam o canhão contra os alemães e os Pak. Destrua os
+dois canhões (com a Carga Explosiva ou deixando os engenheiros da IA plantarem explosivos) para a vitória.
+
+Os tanques têm o mesmo visual "de blocos" do avião, mas são entidades, porque blocos de verdade não andam.
+Também dá para gerar um Sherman ou um Pak 40 com ovo no modo criativo.
+
 ## Seus itens
 
 | Item | Uso |
@@ -73,6 +90,7 @@ para não travar o fim do jogo. Para voltar com os monstros, mude `NO_HOSTILE_MO
 
 - `/scriptevent ww2:intro`: saltar de novo do avião
 - `/scriptevent ww2:battle`: criar uma batalha onde você está
+- `/scriptevent ww2:mission2`: pular direto para a missão do bosque
 - `/scriptevent ww2:reset`: apagar a batalha atual
 
 Também há ovos de geração do Paraquedista dos EUA, do Soldado Alemão e do Flak 38 no inventário criativo.
@@ -87,7 +105,7 @@ No topo de `scripts/config.js` (dentro do pacote de comportamento) dá para redu
 
 ```
 python3 tools/build.py        # gera build/ e dist/WW2_DDay_Paraquedistas.mcaddon
-node tools/sim/run-sim.mjs    # roda o addon inteiro em um simulador da API (intro → salto → batalha → vitória)
+node tools/sim/run-sim.mjs    # roda o addon inteiro em um simulador da API (intro → salto → missão 1 → missão 2)
 python3 tools/preview.py out  # renderiza prévias dos modelos
 ```
 

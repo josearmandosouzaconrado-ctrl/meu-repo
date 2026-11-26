@@ -102,11 +102,45 @@ for (const f of [...SIM.entities.values()].filter((e) => e.typeId === 'ww2:flak3
   world.afterEvents.itemUse._fire({ source: p, itemStack: inv.items[0] });
   step(110);
 }
-step(120);
-assert(SIM.messages.some((m) => m.includes('contra-ataque')), 'contra-ataque alemão');
-for (const g of [...SIM.entities.values()].filter((e) => e.typeId === 'ww2:german_soldier')) g.applyDamage(100);
-step(120);
-assert(SIM.log.some((l) => l[0] === 'title' && String(l[1]).includes('MISSÃO CUMPRIDA')), 'vitória');
+step(20);
+assert(SIM.log.some((l) => l[0] === 'title' && String(l[1]).includes('MISSÃO CUMPRIDA')), 'missão 1 cumprida');
+step(200);
+assert(count('ww2:map_board') === 1, 'mapa de briefing na frente da câmera');
+assert(SIM.commands.some((c) => c.includes('camera @s set minecraft:free ease 13')), 'câmera passeando pelo mapa');
+assert(count('ww2:german_soldier') === 0 && count('ww2:flak38') === 0, 'unidades da missão 1 removidas');
+const phaseNow = () => JSON.parse(world.getDynamicProperty('ww2:m2')).phase;
+for (let i = 0; i < 150 && phaseNow() !== 'convoy'; i++) step(10);
+assert(phaseNow() === 'convoy', 'coluna blindada em movimento');
+const roadBlocks = [...SIM.blocks.values()].filter((b) => b === 'minecraft:grass_path').length;
+const logs = [...SIM.blocks.values()].filter((b) => b.endsWith('_log')).length;
+assert(roadBlocks > 500 && logs > 800, `estrada de terra (${roadBlocks}) e bosque (${logs} troncos) gerados`);
+assert(count('ww2:sherman') === 4, 'coluna de 4 Shermans: ' + count('ww2:sherman'));
+const tank1 = [...SIM.entities.values()].find((e) => e.typeId === 'ww2:sherman' && e.dyn['ww2:tank'] === 1);
+assert(p.mount === tank1, 'jogador em cima do 2º tanque');
+assert(SIM.entities.size && [...SIM.entities.values()].filter((e) => e.mount && e.mount.typeId === 'ww2:sherman').length >= 20, 'esquadrões montados nos tanques');
+const x0 = tank1.location.x;
+step(100);
+assert(tank1.location.x > x0 + 10, `tanques andando pela estrada (+${(tank1.location.x - x0).toFixed(1)} blocos)`);
+for (let i = 0; i < 150 && phaseNow() !== 'battle'; i++) step(10);
+const m2b = JSON.parse(world.getDynamicProperty('ww2:m2'));
+assert(m2b.phase === 'battle', 'emboscada e desembarque: ' + m2b.phase);
+assert(SIM.messages.some((m) => m.includes('EMBOSCADA')), 'emboscada anunciada');
+assert(!p.mount, 'jogador desembarcou');
+assert([...SIM.entities.values()].some((e) => e.typeId === 'ww2:sherman' && e.props['ww2:destroyed']), 'tanque da frente atingido pelo Pak');
+step(300);
+assert(count('ww2:pak40') === 2, 'dois canhões Pak 40: ' + count('ww2:pak40'));
+assert(count('ww2:german_soldier') >= 10, 'defensores alemães no bosque: ' + count('ww2:german_soldier'));
+const us2 = count('ww2:us_paratrooper', (e) => e.props['ww2:state'] === 5);
+assert(us2 >= 15, 'esquadrões de IA no solo: ' + us2);
+assert(count('ww2:flak_shell') > 0 || SIM.commands.some((c) => c.includes('camerashake add @s 0.25')), 'tanques/Pak atirando');
+for (const f of [...SIM.entities.values()].filter((e) => e.typeId === 'ww2:pak40')) {
+  p.teleport({ x: f.location.x + 1, y: f.location.y, z: f.location.z });
+  inv.items[0] = new mc.ItemStack('ww2:explosive', 3);
+  world.afterEvents.itemUse._fire({ source: p, itemStack: inv.items[0] });
+  step(110);
+}
+step(60);
+assert(SIM.log.some((l) => l[0] === 'title' && String(l[1]).includes('VITÓRIA')), 'vitória da missão 2');
 
 console.log('\nAvisos/erros de script:', warns.length);
 for (const w of warns.slice(0, 15)) console.log('  ', w.slice(0, 400));

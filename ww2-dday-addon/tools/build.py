@@ -10,7 +10,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
-import art, sfx, plane_layout as PL  # noqa: E402
+import art, sfx, plane_layout as PL, mission2_art as M2  # noqa: E402
 
 BUILD = os.path.join(ROOT, 'build')
 BP = os.path.join(BUILD, 'WW2_DDay_BP')
@@ -652,6 +652,25 @@ def write_bp_entities():
         props={'ww2:pitch': {'type': 'float', 'range': [-10.0, 90.0], 'default': 20.0, 'client_sync': True},
                'ww2:destroyed': {'type': 'bool', 'default': False, 'client_sync': True}},
         extra={'minecraft:nameable': {'always_show': False}}))
+    wjson(os.path.join(d, 'pak40.json'), static_entity(
+        'ww2:pak40', ['ww2', 'flak', 'pak', 'inanimate'], gravity=True, collision=(2.0, 1.3), health=200,
+        props={'ww2:pitch': {'type': 'float', 'range': [-10.0, 90.0], 'default': 2.0, 'client_sync': True},
+               'ww2:destroyed': {'type': 'bool', 'default': False, 'client_sync': True}},
+        extra={'minecraft:nameable': {'always_show': False}}))
+    seats = [[0.9, 2.55, 2.5], [-0.9, 2.55, 2.5], [1.1, 2.55, -2.3], [-1.1, 2.55, -2.3],
+             [1.1, 2.55, -3.4], [-1.1, 2.55, -3.4], [0.0, 2.55, -2.85]]
+    wjson(os.path.join(d, 'sherman.json'), static_entity(
+        'ww2:sherman', ['ww2', 'us_army', 'us_tank', 'inanimate'], collision=(3.6, 2.6), health=500,
+        props={'ww2:turret': {'type': 'float', 'range': [-180.0, 180.0], 'default': 0.0, 'client_sync': True},
+               'ww2:moving': {'type': 'bool', 'default': False, 'client_sync': True},
+               'ww2:destroyed': {'type': 'bool', 'default': False, 'client_sync': True}},
+        extra={'minecraft:rideable': {'seat_count': len(seats), 'family_types': ['player', 'us_army', 'paratrooper'],
+                                      'interact_text': 'action.interact.ride.horse', 'pull_in_entities': False,
+                                      'crouching_skip_interact': True,
+                                      'seats': [{'position': p, 'lock_rider_rotation': 0} for p in seats]},
+               'minecraft:nameable': {'always_show': False}}))
+    wjson(os.path.join(d, 'map_board.json'), static_entity('ww2:map_board', ['ww2', 'inanimate'], persistent=False,
+                                                             collision=(0.1, 0.1)))
     wjson(os.path.join(d, 'c47.json'), static_entity('ww2:c47', ['ww2', 'ww2_plane', 'inanimate'], collision=(1, 1),
                                                        persistent=False))
     wjson(os.path.join(d, 'propeller.json'), static_entity('ww2:propeller', ['ww2', 'ww2_plane', 'inanimate'],
@@ -778,6 +797,9 @@ def misc_animations():
             'canopy': {'scale': ['math.min(1, 0.12 + q.life_time * 1.6)', 'math.min(1, 0.3 + q.life_time * 1.4)',
                                  'math.min(1, 0.12 + q.life_time * 1.6)']},
             'root': {'rotation': ['math.sin(q.life_time * 70) * 3', 0, 'math.cos(q.life_time * 55) * 4']}}},
+        'animation.ww2.tank.turret': {'loop': True, 'bones': {
+            'turret': {'rotation': [0, "q.property('ww2:turret')", "q.property('ww2:destroyed') ? 4 : 0"]},
+            'barrel': {'rotation': ["q.property('ww2:destroyed') ? 8 : -2", 0, 0]}}},
         'animation.ww2.trail': {'loop': False, 'animation_length': 0.05,
                                 'particle_effects': {'0.0': {'effect': 'trail'}}},
     }}
@@ -845,6 +867,14 @@ def write_rp_entities():
     wjson(os.path.join(d, 'parachute.entity.json'), client_entity(
         'ww2:parachute', pal, 'geometry.ww2.parachute', {'deploy': 'animation.ww2.parachute.deploy'}, ['deploy']))
     wjson(os.path.join(d, 'marker.entity.json'), client_entity('ww2:marker', pal, 'geometry.ww2.marker'))
+    wjson(os.path.join(d, 'sherman.entity.json'), client_entity(
+        'ww2:sherman', pal, 'geometry.ww2.sherman', {'turret': 'animation.ww2.tank.turret'}, ['turret'],
+        ['controller.render.ww2.flak'], egg={'base_color': '#545c34', 'overlay_color': '#e2e2dc'}))
+    wjson(os.path.join(d, 'pak40.entity.json'), client_entity(
+        'ww2:pak40', pal, 'geometry.ww2.pak40', {'aim': 'animation.ww2.flak.aim'}, ['aim'],
+        ['controller.render.ww2.flak'], egg={'base_color': '#928658', 'overlay_color': '#222220'}))
+    wjson(os.path.join(d, 'map_board.entity.json'), client_entity(
+        'ww2:map_board', {'default': 'textures/entity/ww2/briefing_map'}, 'geometry.ww2.map_board'))
     for b in ('us_rifle', 'us_smg', 'us_mg', 'de_rifle', 'de_smg', 'p_rifle', 'p_smg', 'p_mg'):
         wjson(os.path.join(d, 'bullets', f'bullet_{b}.entity.json'), client_entity(
             f'ww2:bullet_{b}', pal, 'geometry.ww2.bullet', {'trail': 'animation.ww2.trail'}, ['trail'],
@@ -966,6 +996,11 @@ def write_lang():
         'entity.ww2:parachute.name': ('Paraquedas T-5', 'T-5 Parachute'),
         'entity.ww2:propeller.name': ('Hélice', 'Propeller'),
         'entity.ww2:marker.name': ('Ponto de Reunião', 'Rally Point'),
+        'entity.ww2:sherman.name': ('Tanque M4 Sherman', 'M4 Sherman Tank'),
+        'entity.ww2:pak40.name': ('Canhão Antitanque Pak 40', 'Pak 40 AT Gun'),
+        'entity.ww2:map_board.name': ('Mapa de Operações', 'Operations Map'),
+        'item.spawn_egg.entity.ww2:sherman.name': ('Gerar Tanque M4 Sherman', 'Spawn M4 Sherman'),
+        'item.spawn_egg.entity.ww2:pak40.name': ('Gerar Pak 40', 'Spawn Pak 40'),
         'item.spawn_egg.entity.ww2:us_paratrooper.name': ('Gerar Paraquedista dos EUA', 'Spawn US Paratrooper'),
         'item.spawn_egg.entity.ww2:german_soldier.name': ('Gerar Soldado Alemão', 'Spawn German Soldier'),
         'item.spawn_egg.entity.ww2:flak38.name': ('Gerar Flak 38', 'Spawn Flak 38'),
@@ -1027,6 +1062,9 @@ def main():
     wjson(os.path.join(models, 'bullet.geo.json'), bullet_geometry())
     wjson(os.path.join(models, 'marker.geo.json'), marker_geometry())
     write_attachables()
+    wjson(os.path.join(models, 'sherman.geo.json'), M2.tank_geometry(pcube, geometry))
+    wjson(os.path.join(models, 'pak40.geo.json'), M2.pak_geometry(pcube, geometry))
+    wjson(os.path.join(models, 'map_board.geo.json'), M2.board_geometry(geometry))
     print('  cores na paleta:', len(PAL.colors))
 
     print('Texturas...')
@@ -1037,6 +1075,7 @@ def main():
         art.paint_palette(art.de_skin(i), PAL).save(os.path.join(tex, f'de_{i}.png'))
     from PIL import Image
     art.paint_palette(Image.new('RGBA', (128, 64), (0, 0, 0, 0)), PAL).save(os.path.join(tex, 'palette.png'))
+    M2.briefing_map().save(os.path.join(tex, 'briefing_map.png'))
     items_dir = os.path.join(RP, 'textures', 'items', 'ww2')
     os.makedirs(items_dir, exist_ok=True)
     item_tex = {}
@@ -1073,6 +1112,9 @@ def main():
     shutil.copytree(SRC_SCRIPTS, sdir)
     with open(os.path.join(sdir, 'plane_layout.js'), 'w', encoding='utf-8') as f:
         f.write(PL.as_js())
+    with open(os.path.join(sdir, 'mission2_layout.js'), 'w', encoding='utf-8') as f:
+        f.write('// GERADO AUTOMATICAMENTE por tools/build.py (mesma planta do mapa de briefing)\n')
+        f.write('export const M2_LAYOUT = ' + json.dumps(M2.LAYOUT) + ';\n')
     manifests()
 
     print('Empacotando...')

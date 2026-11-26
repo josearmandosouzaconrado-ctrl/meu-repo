@@ -155,6 +155,21 @@ def whiz():
     return norm(x, 0.5)
 
 
+def tank_engine(dur=4.0):
+    t = t_axis(dur)
+    base = 34.0
+    x = sum(a * np.sin(2 * np.pi * base * h * t + h) for h, a in ((1, 1.0), (2, 0.7), (3, 0.4), (5, 0.2)))
+    x *= 0.8 + 0.2 * np.sin(2 * np.pi * 7.0 * t)
+    x += lp_fast(rng.standard_normal(len(t)), 300) * 3
+    # tilintar das esteiras
+    for k in np.arange(0.05, dur, 0.21):
+        i = int(k * SR); seg = t_axis(0.04)
+        c = np.sin(2 * np.pi * 900 * seg) * env_exp(seg, 0.006) * 0.35
+        x[i:i + len(seg)] += c[:len(x) - i]
+    fade = np.minimum(1, np.minimum(t / 0.4, (dur - t) / 0.4))
+    return norm(x * fade, 0.8)
+
+
 def write_ogg(path, x):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     wav = path[:-4] + '.wav'
@@ -179,6 +194,8 @@ SOUNDS = {
     'flak_burst': (lambda: boom(1.8, 0.35, 260, 0.5), 'hostile', 200, 1.0),
     'explosion':  (lambda: boom(2.5, 0.5, 180, 0.8), 'hostile', 160, 1.0),
     'engine':     (engine, 'neutral', 48, 1.0),
+    'tank_gun':   (lambda: boom(2.2, 0.3, 420, 1.6), 'hostile', 220, 1.0),
+    'tank_engine': (tank_engine, 'neutral', 40, 1.0),
     'wind':       (wind, 'neutral', 24, 1.0),
     'chute_open': (chute_open, 'neutral', 32, 1.0),
     'buzzer':     (buzzer, 'neutral', 24, 1.0),

@@ -1,6 +1,6 @@
 // Campo de batalha: baterias Flak, infantaria alemã e as duas IAs de comando
 // (QG da 101ª Divisão americana e o comando alemão).
-import { world } from '@minecraft/server';
+import { world, system } from '@minecraft/server';
 import { CFG, SQUAD_NAMES, FLAK_NAMES, DE_NAMES, US_NAMES, RADIO_DE } from './config.js';
 import { HUB } from './hub.js';
 import {
@@ -42,6 +42,7 @@ function load() {
 }
 
 const hq = (t) => msgAll(`§2[Rádio QG 101ª]§f ${t}`);
+const oname = (f) => (f && f.kind === 'pak' ? 'Canhão Pak ' : 'Bateria ') + (f ? f.name : '?');
 const deRadio = (i) => { const [de_, pt] = RADIO_DE[i]; msgAll(`§8[Rádio alemão interceptado]§7 "${de_}" §8(${pt})`); };
 
 function groundAt(loc, up = 4, down = 40) {
@@ -285,7 +286,7 @@ function liveFlaks() {
   B.flaks.forEach((f, i) => {
     if (f.destroyed) return;
     const e = flakEnts.get(i);
-    if (valid(e)) out.push({ e, idx: i });
+    if (valid(e)) out.push({ e, idx: i, kind: f.kind || 'flak' });
   });
   return out;
 }
@@ -422,7 +423,7 @@ function squadGoal(sq, c) {
     return o ? groundAt(o.location, 2, 90) : null;
   }
   if (sq.order === 'point') return sq.point;
-  if (!B || B.phase === 'air') return null;
+  if (!B || B.phase === 'air' || B.phase === 'convoy' || B.phase === 'm1_done') return null;
   if (B.phase !== 'battle') {
     const o = nearestPlayer(c);
     return o ? groundAt(o.location, 2, 90) : null;
@@ -523,15 +524,15 @@ function division() {
     if (s.announced !== msg) {
       s.announced = msg;
       if (m.length >= defenders) {
-        hq(`Esquadrão §e${s.name}§f (${m.length} homens) → atacar a §cBateria ${cur.name}§f (${defenders} defensores).`);
+        hq(`Esquadrão §e${s.name}§f (${m.length} homens) → atacar a §c${oname(cur)}§f (${defenders} defensores).`);
       } else {
         // pouca força: pede apoio a outro esquadrão e coordena o ataque
         const partner = auto.find((o) => o !== s && o.waitFor < 0 && membersOfSquad(o.k).length);
         if (partner) {
           partner.objective = s.objective; s.waitFor = partner.k; partner.announced = '';
-          hq(`Esquadrão §e${s.name}§f (${m.length}) é fraco contra ${defenders} defensores na Bateria ${cur.name}. Ataque coordenado com o Esquadrão §e${partner.name}§f!`);
+          hq(`Esquadrão §e${s.name}§f (${m.length}) é fraco contra ${defenders} defensores na ${oname(cur)}. Ataque coordenado com o Esquadrão §e${partner.name}§f!`);
         } else {
-          hq(`Esquadrão §e${s.name}§f: avancem com cautela sobre a Bateria ${cur.name}.`);
+          hq(`Esquadrão §e${s.name}§f: avancem com cautela sobre a ${oname(cur)}.`);
         }
       }
     }
@@ -551,7 +552,7 @@ function germanCommand() {
       if (patrol) {
         patrol.target = { x: a.f.x, y: a.f.y, z: a.f.z };
         deRadio(1);
-        hq(`Inteligência: patrulha alemã se deslocando para defender a Bateria ${a.f.name}!`);
+        hq(`Inteligência: patrulha alemã se deslocando para defender a ${oname(a.f)}!`);
       }
     }
   }
@@ -567,7 +568,7 @@ function germanCommand() {
         groups[gi].kind = 'reinf'; groups[gi].home = spot; groups[gi].target = { x: target.x, y: target.y, z: target.z };
         for (let k = 0; k < CFG.REINFORCE_SIZE; k++) spawnGerman({ x: spot.x + rand(-2, 2), y: spot.y, z: spot.z + rand(-2, 2) }, gi);
         deRadio(1);
-        hq(`Reforços alemães se aproximando pelo §c${compass(B.dz, spot)}§f, rumo à Bateria ${target.name}!`);
+        hq(`Reforços alemães se aproximando pelo §c${compass(B.dz, spot)}§f, rumo à ${oname(target)}!`);
       }
     }
   }
@@ -615,8 +616,27 @@ function title_all(t, s) { for (const p of players()) title(p, t, s, 10, 80, 20)
 
 function checkVictory() {
   if (!B) return;
-  if (B.phase === 'battle' && B.flaks.length && B.flaks.every((f) => f.destroyed)) startCounter();
-  else if (B.phase === 'counter' && ![...de.values()].some((d) => valid(d.e))) {
+  if (B.phase === 'battle' && B.flaks.length && B.flaks.every((f) => f.destroyed)) {
+    if ((B.mission || 1) === 1 && HUB.mission2) {
+      B.phase = 'm1_done';
+      title_all('§6§lMISSÃO CUMPRIDA', '§fTodas as baterias antiaéreas foram destruídas!');
+      hq('Excelente trabalho! A zona de salto está segura. Preparem-se para a próxima operação...');
+      for (const p of players()) sound('ww2.radio', p.location, 1, 1);
+      save();
+      system.runTimeout(() => safe(() => HUB.mission2.start(B.dz)), 110);
+      return;
+    }
+    if ((B.mission || 1) === 2) {
+      B.phase = 'victory';
+      title_all('§6§lVITÓRIA!', '§fOs canhões foram destruídos e a estrada está aberta!');
+      hq(`O bosque é nosso! Baixas inimigas: §c${B.kills}§f. Nossas baixas: §e${B.losses}§f. A estrada para Carentan está aberta!`);
+      for (const p of players()) sound('ww2.radio', p.location, 1, 1);
+      if (HUB.mission2) safe(() => HUB.mission2.finished());
+      save();
+      return;
+    }
+    startCounter();
+  } else if (B.phase === 'counter' && ![...de.values()].some((d) => valid(d.e))) {
     B.phase = 'victory';
     title_all('§6§lMISSÃO CUMPRIDA', '§fA zona de salto está segura. Bom trabalho, soldado!');
     hq(`Vitória! Baixas inimigas: §c${B.kills}§f. Nossas baixas: §e${B.losses}§f. A 101ª segura a Normandia!`);
@@ -633,7 +653,7 @@ function plantCharge(idx, by) {
   if (!B || !B.flaks[idx] || B.flaks[idx].destroyed) return false;
   if (charges.some((c) => c.idx === idx)) return false;
   charges.push({ idx, at: now() + 100, by });
-  msgAll(`§e${by}:§f Explosivos armados na Bateria ${B.flaks[idx].name}! §cPROTEJAM-SE!`);
+  msgAll(`§e${by}:§f Explosivos armados na ${oname(B.flaks[idx])}! §cPROTEJAM-SE!`);
   return true;
 }
 
@@ -657,9 +677,9 @@ function destroyFlak(idx, by) {
   particle('minecraft:huge_explosion_emitter', add(loc, { x: 0, y: 1, z: 0 }));
   sound('ww2.explosion', loc, 4, 0.9);
   try { dim().createExplosion(add(loc, { x: 0, y: 0.5, z: 0 }), 3, { breaksBlocks: false, causesFire: false }); } catch { /* ignore */ }
-  title_all('§a§lBATERIA AA DESTRUÍDA', `§fBateria ${f.name} — por ${by}`);
+  title_all(f.kind === 'pak' ? '§a§lCANHÃO PAK DESTRUÍDO' : '§a§lBATERIA AA DESTRUÍDA', `§f${oname(f)} — por ${by}`);
   const left = B.flaks.filter((x) => !x.destroyed).length;
-  hq(left ? `Bateria ${f.name} fora de combate! Restam §e${left}§f.` : 'Última bateria antiaérea destruída!');
+  hq(left ? `${oname(f)} fora de combate! Restam §e${left}§f.` : (f.kind === 'pak' ? 'Último canhão antitanque destruído!' : 'Última bateria antiaérea destruída!'));
   for (const s of squads) if (s.objective === idx) { s.objective = -1; s.waitFor = -1; s.announced = ''; }
   save();
   checkVictory();
@@ -684,12 +704,13 @@ function sidebar() {
   try {
     const sb = world.scoreboard;
     let obj = sb.getObjective('ww2');
+    const label = (B.mission || 1) === 2 ? '§eCanhões Pak' : '§eBaterias AA';
     if (!obj) {
       obj = sb.addObjective('ww2', '§6§lD-DAY');
       sb.setObjectiveAtDisplaySlot('Sidebar', { objective: obj });
     }
     const set = (name, v) => { try { obj.setScore(name, v); } catch { /* ignore */ } };
-    set('§eBaterias AA', B.flaks.filter((f) => !f.destroyed).length);
+    set(label, B.flaks.filter((f) => !f.destroyed).length);
     set('§aParaquedistas', us.size);
     set('§cAlemães', de.size);
     set('§7Reforço aéreo', B.airReinf);
@@ -750,15 +771,15 @@ function airReinforcement(player) {
 function report() {
   if (!B) return 'Nenhuma operação em andamento. Use /scriptevent ww2:battle para iniciar uma batalha aqui.';
   const lines = [];
-  const phaseName = { air: 'Lançamento aéreo', battle: 'Destruir as baterias AA', counter: 'Repelir contra-ataque', victory: 'Missão cumprida' }[B.phase];
+  const phaseName = { air: 'Lançamento aéreo', battle: (B.mission || 1) === 2 ? 'Destruir os canhões Pak 40 no bosque' : 'Destruir as baterias AA', counter: 'Repelir contra-ataque', victory: 'Missão cumprida', m1_done: 'Missão cumprida', convoy: 'Coluna blindada a caminho' }[B.phase];
   lines.push(`§6Objetivo:§f ${phaseName}`);
-  B.flaks.forEach((f, i) => lines.push(`  ${f.destroyed ? '§a✔' : '§c✖'} Bateria ${f.name} §7(${Math.round(f.x)}, ${Math.round(f.z)})${f.destroyed ? '' : ` — ${defendersNear(f)} defensores`}`));
+  B.flaks.forEach((f, i) => lines.push(`  ${f.destroyed ? '§a✔' : '§c✖'} ${oname(f)} §7(${Math.round(f.x)}, ${Math.round(f.z)})${f.destroyed ? '' : ` — ${defendersNear(f)} defensores`}`));
   lines.push('');
   for (const s of squads) {
     const m = membersOfSquad(s.k);
     if (!m.length) continue;
     const ord = { follow: 'seguindo o líder', hold: 'mantendo posição', point: 'indo ao ponto marcado', auto: 'QG decide', assault: 'atacando' }[s.order];
-    const obj = s.objective >= 0 && B.flaks[s.objective] ? ` → Bateria ${B.flaks[s.objective].name}` : '';
+    const obj = s.objective >= 0 && B.flaks[s.objective] ? ` → ${oname(B.flaks[s.objective])}` : '';
     lines.push(`§a${s.name}§f: ${m.length} homens, ${ord}${obj}`);
   }
   lines.push('');
@@ -800,6 +821,84 @@ function onHurt(e) {
   if (d && d.mode !== 'combat' && d.mode !== 'retreat') setModeDE(d, 'combat');
 }
 
+function clearUnits() {
+  for (const tag of ['ww2_unit', 'ww2_unit_flak']) {
+    for (const e of safe(() => dim().getEntities({ tags: [tag] }), [])) safe(() => e.remove());
+  }
+  for (const t of ['ww2:marker', 'ww2:flak38', 'ww2:pak40']) {
+    for (const e of safe(() => dim().getEntities({ type: t }), [])) safe(() => e.remove());
+  }
+  us.clear(); de.clear(); flakEnts.clear(); charges.length = 0;
+  for (const s of squads) Object.assign(s, { order: s.k === 0 ? 'follow' : 'auto', point: null, objective: -1, waitFor: -1, marker: null, markerPos: null, announced: '', landAnnounced: false });
+  for (const g of groups) Object.assign(g, { kind: null, home: null, target: null, marker: null, markerPos: null });
+  safe(() => world.scoreboard.removeObjective('ww2'));
+}
+
+function prepareMission2(base, layout) {
+  if (!loaded) load();
+  const air = B ? B.airReinf : CFG.AIR_REINFORCEMENTS;
+  const owner = squads[0].owner;
+  clearUnits();
+  squads[0].owner = owner;
+  B = { mission: 2, phase: 'convoy', dz: { ...base }, flaks: [], airReinf: Math.max(1, air), lastReinf: now(),
+    alerted: [], kills: 0, losses: 0, pending: [] };
+  layout.paks.forEach((p, i) => {
+    const pos = { x: base.x + p.x + 0.5, y: base.y, z: base.z + p.z + 0.5 };
+    B.flaks.push({ ...pos, name: p.name, kind: 'pak', destroyed: false, spawned: false });
+    groups[i].kind = 'flak'; groups[i].home = pos;
+    B.pending.push({ t: 'pak', i });
+    B.pending.push({ t: 'grp', g: i, x: pos.x, z: pos.z, n: 2 });
+  });
+  let gi = layout.paks.length;
+  groups[gi].kind = 'post';
+  B.pending.push({ t: 'grp', g: gi, x: base.x + layout.mg.x, z: base.z + layout.mg.z, n: 3, weapon: 'mp44', bags: true });
+  gi++;
+  for (const g of layout.groups) {
+    if (gi >= NG - 1) break;
+    groups[gi].kind = 'patrol';
+    B.pending.push({ t: 'grp', g: gi, x: base.x + g.x, z: base.z + g.z, n: 4 });
+    gi++;
+  }
+  save();
+}
+
+function tickPending() {
+  if (!B || !B.pending || !B.pending.length) return;
+  for (let i = B.pending.length - 1; i >= 0; i--) {
+    const it = B.pending[i];
+    const x = it.t === 'pak' ? B.flaks[it.i].x : it.x;
+    const z = it.t === 'pak' ? B.flaks[it.i].z : it.z;
+    const g = findGround(x, z, Math.floor(B.dz.y || 0) + 60, Math.floor(B.dz.y || 0) - 60) ?? findGround(x, z, 300);
+    if (!g) continue;
+    const pos = { x, y: g.y, z };
+    if (it.t === 'pak') {
+      let e;
+      try { e = dim().spawnEntity('ww2:pak40', pos); } catch { continue; }
+      const f = B.flaks[it.i];
+      buildEmplacement({ x: Math.floor(x), y: g.y, z: Math.floor(z) });
+      safe(() => { e.addTag('ww2_flak_' + it.i); e.addTag('ww2_unit_flak'); e.nameTag = oname(f); });
+      safe(() => e.teleport(pos, { facingLocation: { x: x - 30, y: g.y, z: B.dz.z } }));
+      f.y = g.y; f.spawned = true;
+      flakEnts.set(it.i, e);
+    } else {
+      if (it.bags) buildEmplacement({ x: Math.floor(x), y: g.y, z: Math.floor(z) });
+      groups[it.g].home = pos;
+      for (let k = 0; k < it.n; k++) spawnGerman({ x: x + rand(-1.5, 1.5), y: g.y, z: z + rand(-1.5, 1.5) }, it.g, it.weapon);
+    }
+    B.pending.splice(i, 1);
+  }
+  save();
+}
+
+function beginMission2() {
+  if (!B) return;
+  B.phase = 'battle';
+  B.lastReinf = now();
+  hq('Contato! Canhões antitanque Pak 40 escondidos no bosque. Infantaria à frente, os tanques dão cobertura!');
+  hq('O QG coordena os esquadrões Able, Baker e Charlie. Pelotão Easy: com você.');
+  save();
+}
+
 function reset() {
   for (const tag of ['ww2_unit', 'ww2_unit_flak', 'ww2_plane']) {
     for (const e of safe(() => dim().getEntities({ tags: [tag] }), [])) safe(() => e.remove());
@@ -827,6 +926,7 @@ export function tick() {
     for (const [id, d] of de) { if (!valid(d.e)) { de.delete(id); continue; } safe(() => thinkDE(d)); }
   }
   if (t % 20 === 0) { safe(tickSquads); safe(tickGroups); }
+  if (t % 20 === 10) safe(tickPending);
   tickCharges();
   if (t % 100 === 50) { safe(division); safe(germanCommand); safe(checkVictory); }
   if (t % 40 === 0) sidebar();
@@ -849,6 +949,9 @@ export function tick() {
 HUB.battle = {
   prepare, begin, announceDrop, landedUS, adopt, liveFlaks, crewCount, nearestUSTarget, onDeath, onHurt,
   order0, regroupAll, generalAssault, airReinforcement, report, reset, plantCharge, nearestFlak,
+  clearUnits, prepareMission2, beginMission2, membersOfSquad, mission: () => (B ? (B.mission || 1) : 0),
+  germans: () => [...de.values()].filter((d) => valid(d.e)).map((d) => d.e),
+  usSoldiers: () => [...us.values()].filter((u) => valid(u.e)).map((u) => u.e),
   phase: () => (B ? B.phase : 'none'),
   active: () => !!B,
 };

@@ -11,6 +11,7 @@ import * as Air from './air.js';
 import * as Battle from './battle.js';
 import * as Chute from './parachute.js';
 import * as Weapons from './weapons.js';
+import * as Mission2 from './mission2.js';
 import { dim, safe, valid, sound, particle, rand, players, setJSON, cmd } from './util.js';
 import { CFG } from './config.js';
 
@@ -135,7 +136,13 @@ system.afterEvents.scriptEventReceive.subscribe((ev) => {
       HUB.battle.prepare({ ...p.location });
       HUB.battle.begin({ ...p.location }, p);
       break;
+    case 'ww2:mission2':
+      if (!isPlayer) return;
+      Mission2.reset();
+      Mission2.start({ ...p.location });
+      break;
     case 'ww2:reset':
+      Mission2.reset();
       HUB.battle.reset();
       Air.removeAll();
       Chute.cleanupAll();
@@ -144,7 +151,7 @@ system.afterEvents.scriptEventReceive.subscribe((ev) => {
       break;
     default:
       if (isPlayer && ev.id.startsWith('ww2:')) {
-        p.sendMessage('§6[WW2] Comandos:§f /scriptevent ww2:intro §7(saltar de novo)§f, ww2:battle §7(batalha aqui)§f, ww2:reset');
+        p.sendMessage('§6[WW2] Comandos:§f /scriptevent ww2:intro §7(saltar de novo)§f, ww2:battle §7(batalha aqui)§f, ww2:mission2 §7(ir para a missão do bosque)§f, ww2:reset');
       }
   }
 }, { namespaces: ['ww2'] });
@@ -152,6 +159,7 @@ system.afterEvents.scriptEventReceive.subscribe((ev) => {
 // ---- laço principal ---------------------------------------------------------
 const loops = [
   ['intro', Intro.tick], ['chute', Chute.tick], ['air', Air.tick], ['battle', Battle.tick], ['weapons', Weapons.tick],
+  ['mission2', Mission2.tick],
 ];
 const errors = {};
 system.runInterval(() => {
