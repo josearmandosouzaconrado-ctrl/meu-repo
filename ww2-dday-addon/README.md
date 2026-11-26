@@ -50,14 +50,24 @@ de paraquedistas controlados por IA. Cada um salta pela porta, e você é o últ
 |---|---|
 | **Thompson M1A1**, **BAR**, **StG 44** | Automáticas: segure para atirar em rajada |
 | **M1 Garand** (com o "ping" do clipe vazio), **Kar98k** | Um toque = um tiro |
-| Agachado + usar a arma | Recarrega (a recarga também é automática quando acaba a munição) |
+| **Agachar com a arma na mão** | **Mira de verdade:** a arma vem para o centro da tela, a alça e a massa de mira se alinham com a mira, a câmera dá zoom e o tiro fica bem mais preciso |
+| Recarga | Automática quando a munição acaba, ou depois de 4 s sem atirar com o carregador pela metade |
 | **Rádio SCR-536** | Ordens para o seu pelotão: siga-me, manter posição, atacar onde estou mirando, atacar a bateria mais próxima, reagrupar a divisão, ataque geral, **pedir reforço aéreo (C-47)** e relatório |
 | **Carga Explosiva** | Use a até 5 blocos de um Flak 38 para destruí-lo (5 segundos) |
 | **Kit Médico** | Recupera 5 corações |
 
+As armas aparecem em **3D na mão**, com a coronha inteira e os braços com a manga do uniforme
+(no quadril ficam no canto da tela, apontando para a mira). Em terceira pessoa, os outros jogadores veem a arma na sua mão.
+
 Os alemães às vezes deixam cair uma StG 44, uma Kar98k, kits médicos ou explosivos.
 Os modelos 3D do M1 Garand, Thompson, BAR e StG 44 vêm do pacote enviado (`ww2-weapons.zip`), convertidos
 para o formato do Bedrock.
+
+## Sem monstros
+
+Com o addon ativo, **nenhum monstro do Minecraft aparece** (zumbis, esqueletos, creepers, aranhas, endermen,
+bruxas, phantoms, saqueadores etc.). Os animais continuam normais. Os chefes (Ender Dragon e Wither) foram mantidos
+para não travar o fim do jogo. Para voltar com os monstros, mude `NO_HOSTILE_MOBS` para `false` em `scripts/config.js`.
 
 ## Comandos (com cheats ativados)
 
@@ -81,6 +91,8 @@ node tools/sim/run-sim.mjs    # roda o addon inteiro em um simulador da API (int
 python3 tools/preview.py out  # renderiza prévias dos modelos
 ```
 
+- `tools/fpview.py` resolve a posição da arma em 1ª pessoa (quadril e mira) com os mesmos referenciais do
+  Blockbench; `python3 tools/fp_render.py out` renderiza a visão do jogador.
 - `tools/voxelize.py` converte o OBJ das armas em cubos do Bedrock.
 - `tools/plane_layout.py` define o C-47 em blocos, a mesma planta usada no modelo de entidade.
 - `tools/art.py` e `tools/sfx.py` geram as texturas e os sons proceduralmente.

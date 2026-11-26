@@ -11,7 +11,8 @@ import * as Air from './air.js';
 import * as Battle from './battle.js';
 import * as Chute from './parachute.js';
 import * as Weapons from './weapons.js';
-import { dim, safe, valid, sound, particle, rand, players, setJSON } from './util.js';
+import { dim, safe, valid, sound, particle, rand, players, setJSON, cmd } from './util.js';
+import { CFG } from './config.js';
 
 const BULLET_SOUNDS = {
   'ww2:bullet_us_rifle': 'ww2.garand', 'ww2:bullet_us_smg': 'ww2.thompson', 'ww2:bullet_us_mg': 'ww2.bar',
@@ -51,10 +52,36 @@ world.afterEvents.entityHurt.subscribe((ev) => {
   if (SOLDIERS.includes(typeOf(e))) safe(() => HUB.battle.onHurt(e));
 });
 
+// ---- sem monstros do Minecraft: só ficam os animais ---------------------------
+const HOSTILE = new Set(['zombie', 'zombie_villager', 'zombie_villager_v2', 'husk', 'drowned', 'skeleton', 'stray',
+  'bogged', 'creeper', 'spider', 'cave_spider', 'enderman', 'witch', 'slime', 'phantom', 'pillager', 'vindicator',
+  'evocation_illager', 'ravager', 'vex', 'guardian', 'elder_guardian', 'silverfish', 'endermite', 'magma_cube',
+  'ghast', 'blaze', 'wither_skeleton', 'piglin', 'piglin_brute', 'hoglin', 'zoglin', 'zombie_pigman', 'shulker',
+  'breeze', 'creaking', 'warden', 'illusioner'].map((x) => 'minecraft:' + x));
+const BOSSES = new Set(['minecraft:ender_dragon', 'minecraft:wither']);
+
+function isVanillaHostile(e, t) {
+  if (!t || !t.startsWith('minecraft:') || t === 'minecraft:player' || BOSSES.has(t)) return false;
+  if (HOSTILE.has(t)) return true;
+  return safe(() => e.matches({ families: ['monster'] }), false);
+}
+
+function sweepHostiles() {
+  if (!CFG.NO_HOSTILE_MOBS) return;
+  for (const id of ['overworld', 'nether', 'the_end']) {
+    const d = safe(() => world.getDimension(id));
+    if (!d) continue;
+    for (const e of safe(() => d.getEntities({ families: ['monster'] }), [])) {
+      if (isVanillaHostile(e, typeOf(e))) safe(() => e.remove());
+    }
+  }
+}
+
 // ---- tiros da IA: som + clarão; soldados colocados com ovo entram na batalha --
 world.afterEvents.entitySpawn.subscribe((ev) => {
   const e = ev.entity;
   const t = typeOf(e);
+  if (CFG.NO_HOSTILE_MOBS && isVanillaHostile(e, t)) { safe(() => e.remove()); return; }
   if (!t || !t.startsWith('ww2:')) return;
   const snd = BULLET_SOUNDS[t];
   if (snd) {
@@ -152,5 +179,10 @@ function cleanupLeftovers() {
     }
   }
 }
-system.runTimeout(() => { cleanupLeftovers(); for (const p of players()) Weapons.track(p); }, 10);
+system.runTimeout(() => {
+  cleanupLeftovers();
+  for (const p of players()) Weapons.track(p);
+  if (CFG.NO_HOSTILE_MOBS) { cmd(dim(), 'gamerule doinsomnia false'); sweepHostiles(); }
+}, 10);
+system.runInterval(sweepHostiles, 200);
 system.runTimeout(() => cleanupLeftovers(), 200);

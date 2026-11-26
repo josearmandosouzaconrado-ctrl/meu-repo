@@ -126,6 +126,97 @@ def weapon_cubes(name):
 
 
 # =============================================================================
+# Arma na mão do jogador (attachable 3D) — 1ª pessoa no quadril e mirando (agachado)
+# =============================================================================
+SKIN = (198, 150, 112)
+SLEEVE = (141, 130, 96)
+SLEEVE_D = (118, 108, 78)
+SIGHT = (28, 28, 28)
+FP_POSES = {   # depth, right, up (unidades do modelo), convergência
+    'hip': dict(depth=17, a=8, b=-7.2, converge=80),
+    'ads': dict(depth=14.5, a=0, b=-4.2),
+}
+
+
+def held_cubes(name):
+    data, plus_x, grip, barrel = WEAPONS[name]
+    L, H, T = data['size']
+    hb = barrel * H
+    cubes = []
+    for b in data['boxes']:
+        (ox, oy, oz), (sx, sy, sz) = b['o'], b['s']
+        L0, L1 = (ox, ox + sx) if plus_x else (L - ox - sx, L - ox)
+        z0 = grip * L - L1
+        y0 = 26.0 + oy - hb
+        x0 = -T / 2 + oz
+        cubes.append(pcube([x0, y0, z0], [sz, sy, sx], b['c']))
+    top = 26.0 + H - hb
+    muzzle_z = -(1 - grip) * L
+    cubes.append(pcube([-0.2, top, muzzle_z + 0.4], [0.4, 0.9, 0.4], SIGHT))              # massa de mira
+    cubes.append(pcube([-0.6, top, 1.2], [0.4, 0.8, 0.4], SIGHT))                         # alça de mira
+    cubes.append(pcube([0.2, top, 1.2], [0.4, 0.8, 0.4], SIGHT))
+    return cubes, muzzle_z
+
+
+def fp_arm_cubes(muzzle_z):
+    zl = muzzle_z * 0.55
+    return [
+        pcube([-1.3, 22.3, -1.2], [2.6, 2.4, 2.6], SKIN),                                    # mão direita (empunhadura)
+        pcube([-1.9, 21.2, 0.6], [3.8, 3.8, 13], SLEEVE, [-32, 0, 0], [0, 23, 1.0]),          # antebraço direito
+        pcube([-2.0, 21.1, 1.0], [4.0, 4.0, 2.0], SLEEVE_D, [-32, 0, 0], [0, 23, 1.0]),       # punho da manga
+        pcube([-1.4, 23.0, zl - 1.3], [2.8, 1.9, 2.6], SKIN),                                # mão esquerda (guarda-mão)
+        pcube([-1.9, 19.6, zl - 1.1], [3.8, 3.8, 14], SLEEVE, [-52, -28, 0], [0, 23.4, zl]),  # antebraço esquerdo
+    ]
+
+
+def held_geometry(name):
+    cubes, muzzle_z = held_cubes(name)
+    bones = [{'name': 'gun', 'binding': 'q.item_slot_to_bone_name(c.item_slot)', 'pivot': [0, 24, 0], 'cubes': cubes},
+             {'name': 'fp_arms', 'parent': 'gun', 'pivot': [0, 24, 0], 'cubes': fp_arm_cubes(muzzle_z)}]
+    return geometry('geometry.ww2.held_' + name, bones, vbw=3, vbh=3, vbo=(0, 1, 0))
+
+
+def held_animations():
+    import fpview
+    A = {}
+    hip_rot, hip_pos = fpview.solve(**FP_POSES['hip'])
+    ads_rot, ads_pos = fpview.solve(**FP_POSES['ads'])
+    bob = 'math.sin(q.life_time * 90) * 0.15 * (q.is_moving ? 3 : 1)'
+    A['animation.ww2.held.fp_hip'] = {'loop': True, 'bones': {'gun': {
+        'rotation': hip_rot, 'position': [hip_pos[0], f'{hip_pos[1]} + {bob}', hip_pos[2]]}}}
+    A['animation.ww2.held.fp_ads'] = {'loop': True, 'bones': {'gun': {
+        'rotation': ads_rot, 'position': [ads_pos[0], f'{ads_pos[1]} + {bob} * 0.3', ads_pos[2]]}}}
+    A['animation.ww2.held.tp'] = {'loop': True, 'bones': {
+        'gun': {'rotation': ['q.is_sneaking ? -12 : 6', 0, 0], 'position': [0, 0, 0]},
+        'fp_arms': {'scale': 0}}}
+    ctrl = {'format_version': '1.10.0', 'animation_controllers': {'controller.animation.ww2.held_fp': {
+        'initial_state': 'hip',
+        'states': {
+            'hip': {'animations': ['fp_hip'], 'transitions': [{'ads': 'q.is_sneaking'}], 'blend_transition': 0.12},
+            'ads': {'animations': ['fp_ads'], 'transitions': [{'hip': '!q.is_sneaking'}], 'blend_transition': 0.12}}}}}
+    return {'format_version': '1.8.0', 'animations': A}, ctrl
+
+
+def write_attachables():
+    items = {'m1_garand': 'garand', 'thompson': 'thompson', 'bar': 'bar', 'mp44': 'mp44', 'kar98': 'kar98'}
+    for ident, gun in items.items():
+        wjson(os.path.join(RP, 'models', 'entity', 'held', f'held_{gun}.geo.json'), held_geometry(gun))
+        wjson(os.path.join(RP, 'attachables', f'{ident}.json'), {'format_version': '1.10.0', 'minecraft:attachable': {
+            'description': {
+                'identifier': 'ww2:' + ident,
+                'materials': {'default': 'entity_alphatest', 'enchanted': 'entity_alphatest_glint'},
+                'textures': {'default': 'textures/entity/ww2/palette', 'enchanted': 'textures/misc/enchanted_item_glint'},
+                'geometry': {'default': 'geometry.ww2.held_' + gun},
+                'animations': {'fp_hip': 'animation.ww2.held.fp_hip', 'fp_ads': 'animation.ww2.held.fp_ads',
+                               'tp': 'animation.ww2.held.tp', 'fp': 'controller.animation.ww2.held_fp'},
+                'scripts': {'animate': [{'fp': 'c.is_first_person'}, {'tp': '!c.is_first_person'}]},
+                'render_controllers': ['controller.render.item_default']}}})
+    anims, ctrl = held_animations()
+    wjson(os.path.join(RP, 'animations', 'ww2_held.animation.json'), anims)
+    wjson(os.path.join(RP, 'animation_controllers', 'ww2_held.animation_controllers.json'), ctrl)
+
+
+# =============================================================================
 # Soldier geometry
 # =============================================================================
 C = {
@@ -593,7 +684,18 @@ def write_bp_items():
     wjson(os.path.join(d, 'medkit.json'), item('ww2:medkit', 'Kit Médico', 'ww2_medkit', 16))
 
 
+HOSTILE = ['zombie', 'zombie_villager', 'zombie_villager_v2', 'husk', 'drowned', 'skeleton', 'stray', 'bogged',
+           'creeper', 'spider', 'cave_spider', 'enderman', 'witch', 'slime', 'phantom', 'pillager', 'vindicator',
+           'evocation_illager', 'ravager', 'guardian', 'elder_guardian', 'silverfish', 'endermite', 'magma_cube',
+           'ghast', 'blaze', 'wither_skeleton', 'piglin', 'piglin_brute', 'hoglin', 'zoglin', 'zombie_pigman',
+           'shulker', 'breeze', 'creaking']
+
+
 def write_bp_misc():
+    # sem monstros naturais: regras de spawn vazias substituem as do jogo
+    for m in HOSTILE:
+        wjson(os.path.join(BP, 'spawn_rules', m + '.json'), {'format_version': '1.8.0', 'minecraft:spawn_rules': {
+            'description': {'identifier': 'minecraft:' + m, 'population_control': 'monster'}, 'conditions': []}})
     wjson(os.path.join(BP, 'loot_tables', 'entities', 'ww2_german.json'), {'pools': [
         {'rolls': 1, 'entries': [{'type': 'item', 'name': 'ww2:mp44', 'weight': 1},
                                  {'type': 'item', 'name': 'ww2:kar98', 'weight': 1},
@@ -924,6 +1026,7 @@ def main():
     wjson(os.path.join(models, 'parachute.geo.json'), parachute_geometry())
     wjson(os.path.join(models, 'bullet.geo.json'), bullet_geometry())
     wjson(os.path.join(models, 'marker.geo.json'), marker_geometry())
+    write_attachables()
     print('  cores na paleta:', len(PAL.colors))
 
     print('Texturas...')

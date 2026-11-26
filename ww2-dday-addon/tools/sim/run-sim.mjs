@@ -30,8 +30,12 @@ const { SIM, step, addPlayer, world } = mc;
 const assert = (c, m) => { if (!c) { console.log('FALHOU:', m); process.exitCode = 1; } else console.log('ok  -', m); };
 const count = (t, f = () => true) => [...SIM.entities.values()].filter((e) => e.valid && e.typeId === t && f(e)).length;
 
+const DIMX = world.getDimension('overworld');
+const z1 = DIMX.spawnEntity('minecraft:zombie', { x: 20, y: 64, z: 20 });
+const cow = DIMX.spawnEntity('minecraft:cow', { x: 22, y: 64, z: 20 });
 const p = addPlayer('Tester', { x: 0.5, y: 64, z: 0.5 });
 step(60);
+assert(!z1.isValid() && cow.isValid(), 'zumbi removido, vaca continua');
 const planes = JSON.parse(world.getDynamicProperty('ww2:planes') || '{}');
 const O = planes[p.id];
 assert(O && O.y === 64 + 78, `avião construído na altitude certa (y=${O && O.y})`);
@@ -85,6 +89,9 @@ const inv = p.getComponent('minecraft:inventory').container;
 inv.items[0] = new mc.ItemStack('ww2:thompson');
 world.afterEvents.itemStartUse._fire({ source: p, itemStack: inv.items[0] });
 step(20);
+p.isSneaking = true; step(3);
+assert(SIM.commands.some((c) => c.includes('fov_set')), 'zoom ao mirar agachado');
+p.isSneaking = false; step(3);
 world.afterEvents.itemStopUse._fire({ source: p, itemStack: inv.items[0] });
 assert(count('ww2:bullet_p_smg') + 1 > 1 || warns.length === 0, 'Thompson dispara');
 

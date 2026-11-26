@@ -25,6 +25,7 @@ export const CFG = {
   COUNTER_WAVE: 8,
   AIR_REINFORCEMENTS: 2,     // pedidos de reforço aéreo pelo rádio
   DAWN_TIME: 22900,          // hora do dia no início (madrugada)
+  NO_HOSTILE_MOBS: true,     // remove todos os monstros do Minecraft (ficam só os animais)
 };
 
 // Timeline da cena do avião (ticks depois que o avião ficou pronto; 20 ticks = 1 s)

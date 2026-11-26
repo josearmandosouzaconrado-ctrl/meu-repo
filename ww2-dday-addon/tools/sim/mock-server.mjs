@@ -133,7 +133,7 @@ export class Entity {
   applyDamage(n) { this.health -= n; if (this.health <= 0) { const e = this; this.remove(); world.afterEvents.entityDie._fire({ deadEntity: e, damageSource: {} }); } return true; }
   getViewDirection() { return { x: 0.3, y: -0.4, z: 0.86 }; }
   getHeadLocation() { return { x: this.location.x, y: this.location.y + 1.6, z: this.location.z }; }
-  matches() { return true; }
+  matches(o) { const fam = { 'minecraft:zombie': ['monster'], 'minecraft:creeper': ['monster'], 'ww2:german_soldier': ['monster'] }; return !o || !o.families || o.families.every((f) => (fam[this.typeId] || []).includes(f)); }
   runCommand(c) { SIM.commands.push(c); return { successCount: 1 }; }
   playSound() {}
   sendMessage(m) { SIM.messages.push(m); }
@@ -155,7 +155,7 @@ const DIM = {
   heightRange: { min: -64, max: 320 },
   getBlock(l) { return new Block(l); },
   spawnEntity(id, loc) {
-    if (!id.startsWith('ww2:')) throw new Error('spawn ' + id);
+    if (!id.startsWith('ww2:') && !['minecraft:zombie', 'minecraft:cow', 'minecraft:creeper'].includes(id)) throw new Error('spawn ' + id);
     const e = new Entity(id, loc);
     world.afterEvents.entitySpawn._fire({ entity: e, cause: 'Spawned' });
     return e;
@@ -165,7 +165,7 @@ const DIM = {
     if (o.type) list = list.filter((e) => e.typeId === o.type);
     if (o.tags) list = list.filter((e) => o.tags.every((t) => e.tags.has(t)));
     if (o.families) {
-      const fam = { 'ww2:us_paratrooper': ['us_army'], 'ww2:german_soldier': ['german', 'monster'], 'minecraft:player': ['player'] };
+      const fam = { 'ww2:us_paratrooper': ['us_army'], 'ww2:german_soldier': ['german', 'monster'], 'minecraft:player': ['player'], 'minecraft:zombie': ['monster'], 'minecraft:creeper': ['monster'], 'minecraft:cow': ['animal'] };
       list = list.filter((e) => o.families.every((f) => (fam[e.typeId] || []).includes(f)));
     }
     if (o.location && o.maxDistance !== undefined) {

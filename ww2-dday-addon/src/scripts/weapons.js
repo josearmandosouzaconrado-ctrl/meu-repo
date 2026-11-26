@@ -52,7 +52,7 @@ function fire(p, id) {
   s.ammo[id] = ammo - 1;
   const head = p.getHeadLocation();
   const dir = p.getViewDirection();
-  const sp = g.spread * (p.isSneaking ? 0.35 : 1);
+  const sp = g.spread * (p.isSneaking ? 0.2 : 1);   // agachado = mirando
   const d = norm({ x: dir.x + rand(-sp, sp), y: dir.y + rand(-sp, sp), z: dir.z + rand(-sp, sp) });
   const start = add(head, mul(dir, 0.8));
   try {
@@ -146,7 +146,6 @@ export function onItemUse(p, item) {
   if (GUNS[id]) {
     const g = GUNS[id];
     const s = st(p);
-    if (p.isSneaking && (s.ammo[id] ?? g.mag) < g.mag) { startReload(p, id); hud(p, id); return; }
     if (!g.auto) { fire(p, id); return; }
     // automática sem "segurar": dispara uma rajada curta
     if (!s.firing) {
@@ -181,6 +180,15 @@ export function tick() {
     }
     if (!valid(p)) { state.delete(pid); continue; }
     const held = safe(() => mainhand(p).item?.typeId);
+    // mira (agachado com arma): zoom da câmera
+    const aiming = !!(held && GUNS[held] && safe(() => p.isSneaking, false));
+    if (aiming !== !!s.ads) {
+      s.ads = aiming;
+      cmd(p, aiming ? 'camera @s fov_set 48 0.15 linear' : 'camera @s fov_clear 0.15 linear');
+    }
+    // recarga tática: 4 s sem atirar com o carregador pela metade
+    if (held && GUNS[held] && !s.firing && !s.burst && now() >= s.reloadUntil && t - s.lastShot === 80
+      && (s.ammo[held] ?? GUNS[held].mag) < GUNS[held].mag * 0.5) startReload(p, held);
     if (s.firing) {
       if (held !== s.firing.id || t - s.firing.since > 20 * 30) { s.firing = null; continue; }
       fire(p, s.firing.id);
