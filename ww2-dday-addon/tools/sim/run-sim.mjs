@@ -26,6 +26,9 @@ console.warn = (...a) => { warns.push(a.join(' ')); };
 const mc = await import(pathToFileURL(path.join(work, 'node_modules', '@minecraft', 'server', 'index.mjs')).href);
 await import(pathToFileURL(path.join(work, 'scripts', 'main.js')).href);
 const { SIM, step, addPlayer, world } = mc;
+const OCEAN_ALL = process.env.SIM_OCEAN === 'all';
+// oceano a leste (a missão 2 precisa achar outro lugar) ou, no teste extremo, mar em volta de tudo
+SIM.waterFn = OCEAN_ALL ? (x, z) => Math.hypot(x, z) > 140 : (x) => x > 200;
 
 const assert = (c, m) => { if (!c) { console.log('FALHOU:', m); process.exitCode = 1; } else console.log('ok  -', m); };
 const count = (t, f = () => true) => [...SIM.entities.values()].filter((e) => e.valid && e.typeId === t && f(e)).length;
@@ -63,7 +66,8 @@ assert(!p.mount, 'jogador pousou');
 assert(p.dyn['ww2:introDone'] === true, 'intro marcada como concluída');
 assert([...SIM.blocks.entries()].filter(([, b]) => b !== 'minecraft:air').length < 80, 'avião de blocos removido (resto = sacos de areia)');
 const landed = count('ww2:us_paratrooper', (e) => e.props['ww2:state'] === 5);
-assert(landed >= 20, 'paraquedistas no solo: ' + landed);
+{ const st = {}; for (const e of SIM.entities.values()) if (e.typeId === 'ww2:us_paratrooper') { const k = e.props['ww2:state'] + (e.mount ? '/' + e.mount.typeId : '') + (e.valid ? '' : '/dead'); st[k] = (st[k] || 0) + 1; } console.log('    estados US no pouso:', JSON.stringify(st), 'mortos(US):', SIM.messages.filter((m) => m.includes('foi atingido')).length); }
+assert(landed >= 20, 'paraquedistas no solo: ' + landed);  // estilhaços de flak podem abater alguns
 assert(SIM.messages.some((m) => m.includes('Rádio QG')), 'QG da divisão ativo');
 
 step(400);
@@ -104,7 +108,8 @@ for (const f of [...SIM.entities.values()].filter((e) => e.typeId === 'ww2:flak3
 }
 step(20);
 assert(SIM.log.some((l) => l[0] === 'title' && String(l[1]).includes('MISSÃO CUMPRIDA')), 'missão 1 cumprida');
-step(200);
+for (let i = 0; i < 150 && count('ww2:map_board') === 0; i++) step(10);
+step(30);
 assert(count('ww2:map_board') === 1, 'mapa de briefing na frente da câmera');
 assert(SIM.commands.some((c) => c.includes('camera @s set minecraft:free ease 13')), 'câmera passeando pelo mapa');
 assert(count('ww2:german_soldier') === 0 && count('ww2:flak38') === 0, 'unidades da missão 1 removidas');
@@ -122,12 +127,29 @@ const x0 = tank1.location.x;
 step(100);
 assert(tank1.location.x > x0 + 10, `tanques andando pela estrada (+${(tank1.location.x - x0).toFixed(1)} blocos)`);
 for (let i = 0; i < 150 && phaseNow() !== 'battle'; i++) step(10);
+const m2site = JSON.parse(world.getDynamicProperty('ww2:m2'));
+if (OCEAN_ALL) {
+  const tk = [...SIM.entities.values()].find((e) => e.typeId === 'ww2:sherman');
+  assert([...SIM.blocks.values()].filter((b) => b === 'minecraft:grass_block').length > 5000, 'aterro criado sobre o mar');
+  assert(tk && tk.location.y >= SIM.groundY, 'tanques sobre o aterro, não dentro da água');
+} else {
+  assert(m2site.base.x < 200, `missão 2 longe do oceano (base x=${m2site.base.x}, z=${m2site.base.z})`);
+}
+assert(SIM.spawned.has('ww2:p51'), 'P-51 passaram por cima do comboio');
 const m2b = JSON.parse(world.getDynamicProperty('ww2:m2'));
 assert(m2b.phase === 'battle', 'emboscada e desembarque: ' + m2b.phase);
 assert(SIM.messages.some((m) => m.includes('EMBOSCADA')), 'emboscada anunciada');
 assert(!p.mount, 'jogador desembarcou');
 assert([...SIM.entities.values()].some((e) => e.typeId === 'ww2:sherman' && e.props['ww2:destroyed']), 'tanque da frente atingido pelo Pak');
 step(300);
+p.teleport({ x: 5000, y: 64, z: 5000 });
+world.afterEvents.playerSpawn._fire({ player: p, initialSpawn: false });
+step(5);
+const nearUS = [...SIM.entities.values()].filter((e) => e.typeId === 'ww2:us_paratrooper' && e.valid)
+  .reduce((m, e) => Math.min(m, Math.hypot(e.location.x - p.location.x, e.location.z - p.location.z)), 1e9);
+assert(nearUS < 16, `renasceu perto do pelotão (${nearUS.toFixed(1)} blocos)`);
+step(400);
+assert(SIM.spawned.has('ww2:p51') && SIM.messages.some((m) => m.includes('Mustang Líder')), 'P-51 metralhando o bosque');
 assert(count('ww2:pak40') === 2, 'dois canhões Pak 40: ' + count('ww2:pak40'));
 assert(count('ww2:german_soldier') >= 10, 'defensores alemães no bosque: ' + count('ww2:german_soldier'));
 const us2 = count('ww2:us_paratrooper', (e) => e.props['ww2:state'] === 5);

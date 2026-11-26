@@ -285,3 +285,90 @@ def briefing_map():
     dark = Image.new('RGB', (W, H), (120, 100, 70))
     img = Image.composite(img, dark, vign)
     return img.resize((512, 256), Image.LANCZOS)
+
+
+# ---------------------------------------------------------------------------
+# P-51D Mustang (células de 8 px; x = frente, z = direita)
+# ---------------------------------------------------------------------------
+SILVER, SILVER_D = (186, 190, 195), (150, 155, 160)
+GLASS = (150, 190, 210)
+P51_OD = (70, 80, 45)
+RED, YELLOW = (180, 30, 30), (220, 190, 40)
+BLACK = (24, 24, 24)
+
+
+def p51_cells():
+    c = {}
+
+    def sec(x, w, y0, y1, col='silver'):
+        for z in range(-w, w + 1):
+            for y in range(y0, y1 + 1):
+                if w > 0 and abs(z) == w and y in (y0, y1):
+                    continue
+                c[(x, y, z)] = col
+    for x in range(-16, 16):
+        if x >= 12:
+            sec(x, 1, 2, 4)
+        elif x >= -4:
+            sec(x, 2, 1, 5)
+        elif x >= -10:
+            sec(x, 1, 2, 5)
+        else:
+            sec(x, 1 if x > -14 else 0, 3, 5)
+    for x in range(-10, -5):                     # faixas de invasão na fuselagem traseira
+        for (xx, y, z), v in list(c.items()):
+            if xx == x:
+                c[(xx, y, z)] = 'white' if x % 2 == 0 else 'black'
+    for x in range(7, 15):                       # painel antirreflexo verde-oliva
+        for z in (-1, 0, 1):
+            top = max(y for (xx, y, zz) in c if xx == x and zz == z)
+            c[(x, top, z)] = 'od'
+    for x in (13, 14, 15):                       # faixa amarela no nariz
+        for (xx, y, z), v in list(c.items()):
+            if xx == x:
+                c[(xx, y, z)] = 'yellow'
+    for x in range(2, 7):                        # canopy em bolha
+        for z in (-1, 0, 1):
+            c[(x, 6, z)] = 'glass'
+            if x in (3, 4, 5) and z == 0:
+                c[(x, 7, z)] = 'glass'
+    for x in range(-4, 3):                       # entrada de ar ventral
+        for z in (-1, 0, 1):
+            c[(x, 0, z)] = 'silver_d'
+    # asas (asa baixa, 1 célula de espessura)
+    for az in range(3, 20):
+        x0 = -2 + (az - 3) // 5
+        x1 = 6 - (az - 3) // 3
+        for z in (az, -az):
+            for x in range(x0, x1 + 1):
+                col = 'silver'
+                if 9 <= az <= 13:
+                    col = 'white' if az % 2 == 1 else 'black'
+                c[(x, 1, z)] = col
+    for x in range(-16, -12):                    # estabilizador horizontal
+        for z in range(-6, 7):
+            if abs(z) > 1 or (x, 3, z) not in c:
+                c[(x, 3, z)] = 'silver'
+    for x, top in {-16: 9, -15: 9, -14: 8, -13: 7, -12: 6}.items():   # deriva
+        for y in range(5, top + 1):
+            c[(x, y, 0)] = 'silver'
+    return c
+
+
+def p51_geometry(pcube, geometry):
+    colors = {'silver': SILVER, 'silver_d': SILVER_D, 'white': WHITE, 'black': BLACK, 'od': P51_OD,
+              'glass': GLASS, 'yellow': YELLOW}
+    body = [pcube(*cell_box(a, b), colors[v]) for a, b, v in greedy(p51_cells())]
+    # estrelas nas asas (lado de cima)
+    for zc in (-16, 16):
+        mx = -(zc + 0.5) * 8
+        body += star_cubes(pcube, [mx, 16, -12], 'y')
+    # hélice de 4 pás com spinner vermelho
+    pz = -16 * 8 - 1
+    prop = [pcube([-4, 20, pz - 6], [8, 8, 7], RED)]
+    for ang in (0, 90):
+        prop.append(pcube([-2, -8, pz - 1], [4, 72, 1.2], BLACK, [0, 0, ang], [0, 24, pz]))
+    bones = [{'name': 'root', 'pivot': [0, 0, 0]},
+             {'name': 'body', 'parent': 'root', 'pivot': [0, 24, 0], 'cubes': body},
+             {'name': 'prop', 'parent': 'root', 'pivot': [0, 24, pz], 'cubes': prop}]
+    return geometry('geometry.ww2.p51', bones, vbw=22, vbh=10, vbo=(0, 1, 0))

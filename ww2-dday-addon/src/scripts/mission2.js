@@ -31,7 +31,9 @@ function load() {
     const idx = safe(() => e.getDynamicProperty('ww2:tank'), undefined);
     if (typeof idx === 'number') tanks[idx] = { e, idx, dead: !!safe(() => e.getProperty('ww2:destroyed')), next: now() + 100 };
   }
-  if (['fade', 'briefing', 'deploy'].includes(M.phase)) {
+  if (!M.origin) M.origin = { x: M.base.x - 320, z: M.base.z };
+  if (M.cand === undefined) M.cand = 0;
+  if (['fade', 'scout', 'briefing', 'deploy'].includes(M.phase)) {
     for (const t of tanks) if (t) safe(() => t.e.remove());
     tanks.length = 0;
     M.phase = 'fade'; M.t = 0;
@@ -46,11 +48,49 @@ const hold = new Map();  // jogadores presos na posição da câmera durante o b
 // ---------------------------------------------------------------------------
 // início
 // ---------------------------------------------------------------------------
+// locais candidatos (a partir da zona de salto); o primeiro com terra firme é escolhido
+const CANDS = [[320, 0], [0, 320], [-320, 0], [0, -320], [240, 240], [-240, 240], [240, -240], [-240, -240],
+  [180, 0], [0, 180]];
+
+function candBase(i) {
+  return { x: M.origin.x + CANDS[i][0], y: 0, z: M.origin.z + CANDS[i][1] };
+}
+
 function start(dz) {
   if (!loaded) load();
   if (M && M.phase !== 'done') return;
-  M = { phase: 'fade', base: { x: Math.floor(dz.x) + 320, y: 0, z: Math.floor(dz.z) }, t: 0, knocked: 0 };
+  M = { phase: 'fade', origin: { x: Math.floor(dz.x), z: Math.floor(dz.z) }, cand: 0, t: 0, knocked: 0 };
+  M.base = candBase(0);
   save();
+}
+
+/** amostra o chão ao longo da estrada e do bosque: quanto é água? */
+function sampleLand() {
+  let total = 0, loaded = 0, water = 0;
+  for (let x = LY.road.x0; x <= LY.road.x1; x += 15) {
+    for (const z of [0, -14, 14]) {
+      total++;
+      const g = ground(M.base.x + x, M.base.z + z);
+      if (!g) continue;
+      loaded++;
+      if (g.water) water++;
+    }
+  }
+  return { total, loaded, water };
+}
+
+function acceptSite(fill) {
+  M.landfill = fill;
+  planGeneration();
+  M.phase = 'fade';
+  M.t = 36;
+  save();
+}
+
+function respawnPoint() {
+  const t = tanks[1] && valid(tanks[1].e) ? tanks[1] : tanks.find((x) => x && valid(x.e));
+  if (!t) return undefined;
+  return add(t.e.location, { x: -3, y: 0.2, z: 4 });
 }
 
 function finished() {
@@ -73,6 +113,8 @@ function perms() {
   P.oakLeaves = perm(['minecraft:oak_leaves', 'minecraft:leaves'], { persistent_bit: true });
   P.darkLeaves = perm(['minecraft:dark_oak_leaves', 'minecraft:leaves2', 'minecraft:oak_leaves'], { persistent_bit: true });
   P.fern = perm(['minecraft:fern', 'minecraft:short_grass', 'minecraft:tallgrass']);
+  P.grass = perm(['minecraft:grass_block', 'minecraft:grass']);
+  P.dirt = perm(['minecraft:dirt']);
   P.ready = true;
 }
 
@@ -119,6 +161,12 @@ function put(x, y, z, p, onlySoft = true) {
 function planGeneration() {
   const bx = M.base.x, bz = M.base.z;
   const q = [];
+  if (M.landfill) {
+    // só tinha mar por perto: aterro de terra para a estrada e o bosque
+    for (let x = LY.road.x0; x <= LY.road.x1; x++) {
+      for (let z = -(LY.forest.zmax + 4); z <= LY.forest.zmax + 4; z++) q.push({ k: 'fill', x: bx + x, z: bz + z });
+    }
+  }
   for (let x = LY.road.x0; x <= LY.road.x1; x++) q.push({ k: 'road', x: bx + x });
   for (let z = -40; z <= 40; z++) q.push({ k: 'road2', x: bx + LY.objective_x, z: bz + z });
   for (const hz of LY.hedges) {
@@ -148,7 +196,7 @@ function doTask(t) {
       const z = M.base.z + dz;
       const g = ground(t.x, z);
       if (!g) return false;
-      if (g.water) continue;
+      if (g.water) { fillColumn(t.x, z, g); }
       put(t.x, g.y, z, P.path, false);
       for (let y = 1; y <= 7; y++) put(t.x, g.y + y, z, P.air, false);
     }
@@ -163,6 +211,7 @@ function doTask(t) {
   }
   const g = ground(t.x, t.z);
   if (!g) return false;
+  if (t.k === 'fill') { if (g.water) fillColumn(t.x, t.z, g); return true; }
   if (g.water) return true;
   const y0 = g.y + 1;
   if (t.k === 'hedge') {
@@ -178,6 +227,15 @@ function doTask(t) {
   }
   if (t.k === 'tree') { treeAt(t.x, y0, t.z, t.h, t.dark); return true; }
   return true;
+}
+
+function fillColumn(x, z, g) {
+  put(x, g.y, z, P.grass, false);
+  put(x, g.y - 1, z, P.dirt, false);
+  put(x, g.y - 2, z, P.dirt, false);
+  const r = { y: g.y, water: false };
+  gen.hcache.set(`${x},${z}`, r);
+  g.water = false;
 }
 
 function treeAt(x, y0, z, h, dark) {
@@ -196,7 +254,7 @@ function treeAt(x, y0, z, h, dark) {
   }
 }
 
-const COST = { road: 5, road2: 2, hedge: 1, bush: 1, tree: 9 };
+const COST = { road: 5, road2: 2, hedge: 1, bush: 1, tree: 9, fill: 1 };
 
 function tickGeneration(budget = 120) {
   if (!gen.queue.length && gen.retry.length && now() % 40 === 0) { gen.queue = gen.retry; gen.retry = []; }
@@ -396,7 +454,9 @@ function tick() {
       safe(() => world.setTimeOfDay(1200));
       cmd(dim(), 'weather clear');
       gen.hcache.clear();
-      planGeneration();
+      M.phase = 'scout'; M.t = 0; M.best = null;
+      save();
+      return;
     }
     if (t >= 32) holdPlayers(cam);
     if (t === 40) {
@@ -417,6 +477,36 @@ function tick() {
       }
       M.phase = 'briefing'; M.t = 0;
       save();
+    }
+    return;
+  }
+
+  if (M.phase === 'scout') {
+    holdPlayers(cam);
+    if (t % 40 === 1) {
+      for (const p of players()) {
+        cmd(p, 'camera @s fade time 0 2.5 0.4 color 0 0 0');
+        actionbar(p, `§7O QG está procurando terreno firme para a próxima operação... (${M.cand + 1}/${CANDS.length})`);
+      }
+    }
+    if (t >= 30 && t % 15 === 0) {
+      const r = sampleLand();
+      const early = r.loaded >= r.total * 0.4 && r.water / r.loaded > 0.3;   // claramente mar: pula já
+      if (r.loaded >= r.total * 0.85 || t > 160 || early) {
+        const frac = r.loaded ? r.water / r.loaded : 1;
+        if (!M.best || frac < M.best.frac) M.best = { frac, base: { ...M.base } };
+        if (r.loaded >= r.total * 0.5 && frac <= 0.06) {
+          acceptSite(false);
+        } else if (M.cand + 1 < CANDS.length) {
+          M.cand++;
+          M.base = candBase(M.cand);
+          M.t = 0;
+          save();
+        } else {
+          M.base = M.best.base;
+          acceptSite(M.best.frac > 0.02);
+        }
+      }
     }
     return;
   }
@@ -470,6 +560,8 @@ function tick() {
     if (t % 80 === 1 && lead) sound('ww2.tank_engine', lead.e.location, 3, 1);
     if (t % 80 === 41 && tanks[1]) sound('ww2.tank_engine', tanks[1].e.location, 3, 0.95);
     if (t === 60) msgAll('§a[Easy] Sgt. Holloway:§f Fiquem de olho nas árvores. Esse bosque é perfeito para uma emboscada...');
+    if (t === 110 && HUB.air && tanks[1]) HUB.air.mustangPass({ ...tanks[1].e.location }, { dir: 1 });
+    if (t === 150) msgAll('§a[Easy] Pvt. Garcia:§f Olha lá! P-51! Os "little friends" estão com a gente!');
     if (t === 200) msgAll('§a[Easy] Pvt. Kowalski:§f Silêncio demais por aqui...');
     if (tanks[0] && valid(tanks[0].e) && tanks[0].e.location.x >= M.base.x + LY.ambush_x - 0.5) { M.phase = 'ambush'; M.t = 0; save(); }
     if (t > 1600) { M.phase = 'ambush'; M.t = 0; }
@@ -525,6 +617,15 @@ function tick() {
       }
     });
     if (t % 100 === 1 && lead) sound('ww2.tank_engine', lead.e.location, 2.5, 0.9);
+    // apoio aéreo: os P-51 voltam para metralhar o bosque
+    if ((t === 260 || t === 1800 || t === 3400) && HUB.air && HUB.battle) {
+      const pak = HUB.battle.liveFlaks().find((x) => x.kind === 'pak');
+      const ger = HUB.battle.germans();
+      const tgt = pak ? pak.e.location : (ger.length ? ger[Math.floor(Math.random() * ger.length)].location : null);
+      if (tgt && HUB.air.mustangPass({ ...tgt }, { dir: Math.random() < 0.5 ? 1 : -1, strafe: { ...tgt } })) {
+        msgAll('§9[Rádio] Mustang Líder:§f Alvo à vista no bosque. Iniciando ataque, mantenham a cabeça baixa!');
+      }
+    }
     if (HUB.battle) {
       for (const f of HUB.battle.liveFlaks()) {
         if (f.kind !== 'pak') continue;
@@ -546,7 +647,7 @@ function reset() {
   save();
 }
 
-HUB.mission2 = { start, finished, reset, active: () => !!M && M.phase !== 'done', phase: () => (M ? M.phase : 'none'),
+HUB.mission2 = { start, finished, reset, respawnPoint, active: () => !!M && M.phase !== 'done', phase: () => (M ? M.phase : 'none'),
   holding: (p) => hold.has(p.id) };
 export { tick, start, reset };
 export const _debug = { tanks, gen, dist2d, actionbar };

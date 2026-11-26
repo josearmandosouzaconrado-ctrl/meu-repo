@@ -140,6 +140,75 @@ function tickPlanes() {
 }
 
 // ---------------------------------------------------------------------------
+// P-51 Mustang: passagem rasante (3 aviões em V) e ataque metralhando o solo
+// ---------------------------------------------------------------------------
+const mustangs = [];
+
+/**
+ * over: ponto sobre o qual passam; dir: +1/-1 ao longo do eixo X;
+ * strafe: alvo no chão para metralhar (opcional)
+ */
+function mustangPass(over, opts = {}) {
+  const dir = opts.dir ?? 1;
+  const g = findGround(over.x, over.z, Math.floor(over.y) + 40) ?? { y: over.y };
+  const alt = g.y + (opts.strafe ? 26 : 20);
+  const startX = over.x - dir * 70;
+  const form = [{ x: 0, z: 0, y: 0 }, { x: -7, z: -9, y: 2 }, { x: -7, z: 9, y: 2 }];
+  let n = 0;
+  for (const f of form) {
+    const loc = { x: startX + f.x * dir, y: alt + f.y, z: over.z + f.z };
+    let e;
+    try { e = dim().spawnEntity('ww2:p51', loc); } catch { continue; }
+    safe(() => e.teleport(loc, { rotation: { x: 0, y: dir > 0 ? -90 : 90 } }));
+    mustangs.push({ e, dir, born: now(), over: { ...over, y: g.y }, alt: alt + f.y, strafe: opts.strafe,
+      lead: n === 0, heard: false, z: over.z + f.z });
+    n++;
+  }
+  return n > 0;
+}
+
+function tickMustangs() {
+  for (let i = mustangs.length - 1; i >= 0; i--) {
+    const m = mustangs[i];
+    if (!valid(m.e)) { mustangs.splice(i, 1); continue; }
+    const l = m.e.location;
+    const rel = (l.x - m.over.x) * m.dir;          // < 0 chegando, > 0 já passou
+    let vy = 0;
+    if (m.strafe) {
+      const target = rel < 0 ? m.over.y + 9 + Math.max(0, -rel - 25) * 0.4 : m.over.y + 9 + rel * 0.6;
+      vy = Math.max(-0.6, Math.min(0.8, (Math.min(target, m.alt) - l.y) * 0.15));
+      if (rel > 0 && l.y < m.alt + 15) vy = 0.7;
+      // metralhadoras .50: rajadas na aproximação
+      if (rel > -45 && rel < -6 && now() % 2 === 0) {
+        const tgt = { x: m.strafe.x + rand(-3, 3), y: m.strafe.y + 0.5, z: m.strafe.z + rand(-3, 3) };
+        for (const side of [-2.5, 2.5]) {
+          const from = { x: l.x + m.dir * 3, y: l.y + 0.4, z: l.z + side };
+          const dirv = norm(sub(tgt, from));
+          try {
+            const b = dim().spawnEntity('ww2:bullet_us_mg', add(from, mul(dirv, 2)));
+            const pc = b.getComponent('minecraft:projectile');
+            if (pc) pc.shoot(mul(dirv, 5)); else b.applyImpulse(mul(dirv, 5));
+          } catch { /* ignore */ }
+        }
+        if (now() % 4 === 0) sound('ww2.bar', l, 3, 1.35);
+      }
+    }
+    try {
+      m.e.clearVelocity();
+      m.e.applyImpulse({ x: 1.55 * m.dir, y: vy, z: (m.z - l.z) * 0.1 });
+    } catch { /* chunk */ }
+    if (m.lead && !m.heard && rel > -55) {
+      m.heard = true;
+      sound('ww2.p51', { x: m.over.x - m.dir * 10, y: m.over.y + 8, z: m.over.z }, 5, 1);
+    }
+    if (rel > -12 && rel < 12 && m.lead && now() % 10 === 0) {
+      for (const p of players()) if (dist(p.location, l) < 40) cmd(p, 'camerashake add @s 0.15 0.5 positional');
+    }
+    if (rel > 90 || now() - m.born > 400) { safe(() => m.e.remove()); mustangs.splice(i, 1); }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Flak 38
 // ---------------------------------------------------------------------------
 function airTargets() {
@@ -223,7 +292,10 @@ function flakBurst(loc) {
   try {
     for (const e of dim().getEntities({ location: loc, maxDistance: 3.5 })) {
       if (e.typeId === 'ww2:c47' || e.typeId === 'ww2:parachute' || e.typeId === 'ww2:propeller' || e.typeId === 'minecraft:player') continue;
-      if (e.typeId === 'ww2:us_paratrooper' || e.typeId === 'ww2:german_soldier') safe(() => e.applyDamage(4));
+      if (e.typeId === 'ww2:us_paratrooper' || e.typeId === 'ww2:german_soldier') {
+        const inChute = !!safe(() => e.getComponent('minecraft:riding')?.entityRidingOn);
+        safe(() => e.applyDamage(inChute ? 1 : 3));
+      }
     }
   } catch { /* ignore */ }
 }
@@ -286,6 +358,7 @@ function tickAtmosphere() {
 }
 
 export function tick() {
+  tickMustangs();
   tickPlanes();
   tickShells();
   tickFlak();
@@ -293,9 +366,11 @@ export function tick() {
 }
 
 export function removeAll() {
+  for (const m of mustangs) safe(() => m.e.remove());
+  mustangs.length = 0;
   for (const p of planes) safe(() => p.e.remove());
   planes.length = 0;
 }
 
-HUB.air = { fireShell, groundImpact, aimGun: aimFlak, spawnFormation, startDrops, flyAway, addDeparting, reinforcement, onShellHit, removeAll,
+HUB.air = { mustangPass, fireShell, groundImpact, aimGun: aimFlak, spawnFormation, startDrops, flyAway, addDeparting, reinforcement, onShellHit, removeAll,
   planeCount: () => planes.length };

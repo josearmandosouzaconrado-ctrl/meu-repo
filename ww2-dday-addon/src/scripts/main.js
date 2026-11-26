@@ -29,7 +29,19 @@ function typeOf(e) {
 world.afterEvents.playerSpawn.subscribe((ev) => {
   const p = ev.player;
   Weapons.track(p);
-  if (!ev.initialSpawn) return;
+  if (!ev.initialSpawn) {
+    // morreu: volta para perto do pelotão / de onde a missão está acontecendo
+    system.runTimeout(() => {
+      if (!valid(p) || (HUB.intro && HUB.intro.active(p))) return;
+      const loc = safe(() => HUB.battle.respawnPoint(p));
+      if (!loc) return;
+      safe(() => p.teleport(loc));
+      safe(() => p.addEffect('resistance', 100, { amplifier: 4, showParticles: false }));
+      Weapons.giveLoadout(p);
+      safe(() => p.sendMessage('§a[Easy]§f Médico! Ele está de pé de novo. §7(Você voltou para junto do pelotão)'));
+    }, 3);
+    return;
+  }
   const done = safe(() => p.getDynamicProperty('ww2:introDone'));
   if (!done) {
     system.runTimeout(() => { if (valid(p)) Intro.start(p); }, 30);

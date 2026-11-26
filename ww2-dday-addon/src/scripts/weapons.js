@@ -1,4 +1,5 @@
 // Armas do jogador (Garand, Thompson, BAR, MP44, Kar98k), rádio, explosivos e kit médico.
+import { ItemStack } from '@minecraft/server';
 import { ActionFormData, MessageFormData } from '@minecraft/server-ui';
 import { HUB } from './hub.js';
 import {
@@ -197,6 +198,21 @@ export function tick() {
       if (fire(p, s.burst.id)) s.burst.left--;
     }
     if (t % 10 === 0 && held && GUNS[held]) hud(p, held);
+  }
+}
+
+/** repõe o equipamento básico (depois de morrer) */
+export function giveLoadout(p) {
+  const inv = safe(() => p.getComponent('minecraft:inventory').container);
+  if (!inv) return;
+  const count = (id) => {
+    let n = 0;
+    for (let i = 0; i < inv.size; i++) { const it = inv.getItem(i); if (it && it.typeId === id) n += it.amount; }
+    return n;
+  };
+  for (const [id, n] of [['ww2:thompson', 1], ['ww2:m1_garand', 1], ['ww2:radio', 1], ['ww2:medkit', 2], ['ww2:explosive', 1]]) {
+    const have = count(id);
+    if (have < n) safe(() => inv.addItem(new ItemStack(id, n - have)));
   }
 }
 

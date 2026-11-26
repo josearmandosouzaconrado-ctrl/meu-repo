@@ -3,7 +3,8 @@
 let tick = 0;
 let nextId = 1;
 const log = [];
-export const SIM = { log, entities: new Map(), blocks: new Map(), commands: [], messages: [], groundY: 64, errors: [] };
+export const SIM = { log, entities: new Map(), blocks: new Map(), commands: [], messages: [], groundY: 64, errors: [],
+  waterFn: () => false, spawned: new Set() };
 
 function ev() {
   const subs = [];
@@ -27,10 +28,10 @@ class Block {
     const k = key(this.location);
     if (SIM.blocks.has(k)) return SIM.blocks.get(k);
     if (this.location.y < SIM.groundY - 1) return 'minecraft:stone';
-    if (this.location.y === SIM.groundY - 1) return 'minecraft:grass_block';
+    if (this.location.y === SIM.groundY - 1) return SIM.waterFn(this.location.x, this.location.z) ? 'minecraft:water' : 'minecraft:grass_block';
     return 'minecraft:air';
   }
-  get isLiquid() { return false; }
+  get isLiquid() { return this.typeId === 'minecraft:water'; }
   get isAir() { return this.typeId === 'minecraft:air'; }
   setPermutation(p) { SIM.blocks.set(key(this.location), p.type.id); }
   setType(t) { SIM.blocks.set(key(this.location), t); }
@@ -157,6 +158,7 @@ const DIM = {
   spawnEntity(id, loc) {
     if (!id.startsWith('ww2:') && !['minecraft:zombie', 'minecraft:cow', 'minecraft:creeper'].includes(id)) throw new Error('spawn ' + id);
     const e = new Entity(id, loc);
+    SIM.spawned.add(id);
     world.afterEvents.entitySpawn._fire({ entity: e, cause: 'Spawned' });
     return e;
   },

@@ -147,8 +147,31 @@ function begin(dz, player) {
     B.lastReinf = now();
     hq(`Pathfinders reportam §e${B.flaks.filter((f) => !f.destroyed).length} baterias antiaéreas§f na zona de salto. Neutralizem as baterias!`);
     hq('Esquadrões Able, Baker, Charlie e Dog: a IA do QG vai coordenar o ataque. Pelotão Easy: siga o líder (você).');
+    system.runTimeout(() => {
+      const p = players()[0];
+      if (p && HUB.air && B && B.phase === 'battle' && HUB.air.mustangPass({ ...p.location }, { dir: 1 })) {
+        hq('Caças P-51 da 9ª Força Aérea sobrevoando a zona de salto. Os "little friends" chegaram!');
+      }
+    }, 500);
     save();
   }
+}
+
+function respawnPoint() {
+  if (!loaded) load();
+  if (HUB.mission2 && ['convoy', 'ambush'].includes(HUB.mission2.phase())) return HUB.mission2.respawnPoint();
+  if (HUB.mission2 && ['fade', 'scout', 'briefing', 'deploy'].includes(HUB.mission2.phase())) return undefined;
+  if (!B) return undefined;
+  let list = membersOfSquad(0).map((u) => u.e);
+  if (!list.length) list = [...us.values()].filter((u) => valid(u.e)).map((u) => u.e);
+  let c = list.length ? centroid(list) : { ...B.dz };
+  const enemy = nearest(c, 14, ['german']);
+  if (enemy) {
+    const dx = c.x - enemy.location.x, dz = c.z - enemy.location.z;
+    const d = Math.hypot(dx, dz) || 1;
+    c = { x: c.x + dx / d * 8, y: c.y, z: c.z + dz / d * 8 };
+  }
+  return groundAt({ x: c.x + rand(-2, 2), y: c.y + 2, z: c.z + rand(-2, 2) }, 12, 50);
 }
 
 function announceDrop() {
@@ -947,6 +970,7 @@ export function tick() {
 }
 
 HUB.battle = {
+  respawnPoint,
   prepare, begin, announceDrop, landedUS, adopt, liveFlaks, crewCount, nearestUSTarget, onDeath, onHurt,
   order0, regroupAll, generalAssault, airReinforcement, report, reset, plantCharge, nearestFlak,
   clearUnits, prepareMission2, beginMission2, membersOfSquad, mission: () => (B ? (B.mission || 1) : 0),

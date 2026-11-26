@@ -673,6 +673,8 @@ def write_bp_entities():
                                                              collision=(0.1, 0.1)))
     wjson(os.path.join(d, 'c47.json'), static_entity('ww2:c47', ['ww2', 'ww2_plane', 'inanimate'], collision=(1, 1),
                                                        persistent=False))
+    wjson(os.path.join(d, 'p51.json'), static_entity('ww2:p51', ['ww2', 'ww2_plane', 'inanimate'], collision=(1, 1),
+                                                       persistent=False))
     wjson(os.path.join(d, 'propeller.json'), static_entity('ww2:propeller', ['ww2', 'ww2_plane', 'inanimate'],
                                                              persistent=False))
     wjson(os.path.join(d, 'marker.json'), static_entity('ww2:marker', ['ww2_marker', 'inanimate']))
@@ -797,6 +799,9 @@ def misc_animations():
             'canopy': {'scale': ['math.min(1, 0.12 + q.life_time * 1.6)', 'math.min(1, 0.3 + q.life_time * 1.4)',
                                  'math.min(1, 0.12 + q.life_time * 1.6)']},
             'root': {'rotation': ['math.sin(q.life_time * 70) * 3', 0, 'math.cos(q.life_time * 55) * 4']}}},
+        'animation.ww2.p51.prop': {'loop': True, 'bones': {
+            'prop': {'rotation': [0, 0, 'q.life_time * 2400']},
+            'root': {'rotation': [0, 0, 'math.sin(q.life_time * 60) * 4']}}},
         'animation.ww2.tank.turret': {'loop': True, 'bones': {
             'turret': {'rotation': [0, "q.property('ww2:turret')", "q.property('ww2:destroyed') ? 4 : 0"]},
             'barrel': {'rotation': ["q.property('ww2:destroyed') ? 8 : -2", 0, 0]}}},
@@ -859,6 +864,8 @@ def write_rp_entities():
     pal = {'default': 'textures/entity/ww2/palette'}
     wjson(os.path.join(d, 'c47.entity.json'), client_entity(
         'ww2:c47', pal, 'geometry.ww2.c47', {'props': 'animation.ww2.c47.props'}, ['props']))
+    wjson(os.path.join(d, 'p51.entity.json'), client_entity(
+        'ww2:p51', pal, 'geometry.ww2.p51', {'spin': 'animation.ww2.p51.prop'}, ['spin']))
     wjson(os.path.join(d, 'propeller.entity.json'), client_entity(
         'ww2:propeller', pal, 'geometry.ww2.propeller', {'spin': 'animation.ww2.propeller.spin'}, ['spin']))
     wjson(os.path.join(d, 'flak38.entity.json'), client_entity(
@@ -997,6 +1004,7 @@ def write_lang():
         'entity.ww2:propeller.name': ('Hélice', 'Propeller'),
         'entity.ww2:marker.name': ('Ponto de Reunião', 'Rally Point'),
         'entity.ww2:sherman.name': ('Tanque M4 Sherman', 'M4 Sherman Tank'),
+        'entity.ww2:p51.name': ('Caça P-51 Mustang', 'P-51 Mustang'),
         'entity.ww2:pak40.name': ('Canhão Antitanque Pak 40', 'Pak 40 AT Gun'),
         'entity.ww2:map_board.name': ('Mapa de Operações', 'Operations Map'),
         'item.spawn_egg.entity.ww2:sherman.name': ('Gerar Tanque M4 Sherman', 'Spawn M4 Sherman'),
@@ -1065,6 +1073,7 @@ def main():
     wjson(os.path.join(models, 'sherman.geo.json'), M2.tank_geometry(pcube, geometry))
     wjson(os.path.join(models, 'pak40.geo.json'), M2.pak_geometry(pcube, geometry))
     wjson(os.path.join(models, 'map_board.geo.json'), M2.board_geometry(geometry))
+    wjson(os.path.join(models, 'p51.geo.json'), M2.p51_geometry(pcube, geometry))
     print('  cores na paleta:', len(PAL.colors))
 
     print('Texturas...')

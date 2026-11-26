@@ -58,6 +58,16 @@ Quando a coluna chega ao bosque, um Pak 40 acerta o tanque da frente. É a **emb
 coordena o ataque. Os Shermans avançam atrás da infantaria e disparam o canhão contra os alemães e os Pak. Destrua os
 dois canhões (com a Carga Explosiva ou deixando os engenheiros da IA plantarem explosivos) para a vitória.
 
+**Terreno:** antes do briefing, o QG procura terra firme em até 10 pontos ao redor da zona de salto. Se só
+houver mar por perto, ele constrói um aterro de terra para a estrada e o bosque, assim os tanques nunca andam na água.
+
+**Caças P-51 Mustang:** três P-51 em formação em V passam rasantes por cima do comboio. Durante a batalha eles voltam
+para metralhar os canhões e a infantaria alemã no bosque. Na missão 1, eles também sobrevoam a zona de salto
+depois do pouso.
+
+**Ao morrer:** você volta para junto do seu pelotão (ou do tanque, se ainda estiver no comboio), e não para o
+spawn do mundo. A Thompson, o Garand, o rádio, os kits médicos e um explosivo são repostos.
+
 Os tanques têm o mesmo visual "de blocos" do avião, mas são entidades, porque blocos de verdade não andam.
 Também dá para gerar um Sherman ou um Pak 40 com ovo no modo criativo.
 

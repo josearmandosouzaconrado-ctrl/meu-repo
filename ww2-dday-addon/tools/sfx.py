@@ -170,6 +170,18 @@ def tank_engine(dur=4.0):
     return norm(x * fade, 0.8)
 
 
+def p51_pass(dur=5.0):
+    # ronco do motor Merlin V12 passando (efeito Doppler simples)
+    t = t_axis(dur)
+    tc = dur * 0.45
+    f0 = 118 * (1 + 0.18 * np.tanh(-(t - tc) * 2.2))
+    ph = np.cumsum(2 * np.pi * f0 / SR)
+    x = sum(a * np.sin(h * ph) for h, a in ((1, 1.0), (2, 0.7), (3, 0.5), (4, 0.3), (6, 0.2), (8, 0.1)))
+    x += hp_fast(lp_fast(rng.standard_normal(len(t)), 2500), 200) * 3
+    amp = 1 / (1 + ((t - tc) * 1.6) ** 2)
+    return norm(x * amp * np.minimum(1, t / 0.3) * np.minimum(1, (dur - t) / 0.3), 0.9)
+
+
 def write_ogg(path, x):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     wav = path[:-4] + '.wav'
@@ -196,6 +208,7 @@ SOUNDS = {
     'engine':     (engine, 'neutral', 48, 1.0),
     'tank_gun':   (lambda: boom(2.2, 0.3, 420, 1.6), 'hostile', 220, 1.0),
     'tank_engine': (tank_engine, 'neutral', 40, 1.0),
+    'p51': (p51_pass, 'neutral', 160, 1.0),
     'wind':       (wind, 'neutral', 24, 1.0),
     'chute_open': (chute_open, 'neutral', 32, 1.0),
     'buzzer':     (buzzer, 'neutral', 24, 1.0),
